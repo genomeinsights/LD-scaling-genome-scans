@@ -136,6 +136,33 @@ Each line starts a separate run on a cluster (sbatch).
     produces files *GTs* and *map* and the environment (*env*) as well
     as the Nemo output containing population genetic info (*sim_data*).
 
+### 3. Simulated data: LD-scaled outlier detection and benchmarking
+
+``` r
+/R_sim/outlier_analyses_sim.R
+```
+
+This script performs the full downstream analysis of simulated genomic
+data used to benchmark LD-scaled genome-scan methods. Parsed simulation
+outputs containing genotypes for 500 individuals are subsampled to a
+fixed set of 125 individuals to match the empirical sampling design and
+to reduce computational cost while preserving LD structure.
+
+For each simulation replicate, the pipeline estimates
+chromosome-specific LD-decay, performs genotype–environment association
+analyses using **EMMAX** and **LFMM**, applies LD-scaling to association
+statistics, and defines **outlier regions (ORs)** across thousands of
+random parameter combinations. Evidence is integrated across parameter
+draws using **consistency scores (C)**, and performance is evaluated at
+the level of ORs rather than individual SNPs.
+
+True and false positives are defined using known causal QTNs, allowing
+calculation of OR-level precision–recall metrics. These are aggregated
+into **AUC-PR\*** and **AUC-PRC** scores to quantify robustness and
+power across demographic and selective scenarios. All intermediate and
+final results are saved to (./data/) and reused by downstream plotting
+and summary scripts.
+
 ### 2. Association analyses
 
 Genotype–environment associations were computed using:
