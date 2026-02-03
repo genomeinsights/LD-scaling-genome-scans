@@ -518,6 +518,7 @@ if(FALSE){
         p <- pf(Fval, df1=1, df2, lower.tail = FALSE)
         q <- p.adjust(p,"fdr")
       })
+      colnames(q_orgs) <- c("emx_q","lfmm_q")
       
       ## get ORs for draws; 200 ld_w vectors and 25 randomly sampled parameter values for each of them
       ORs_for_Cscore <- get_ORs_for_draw(gds,
@@ -537,7 +538,6 @@ if(FALSE){
       ## get C-score and collect data
       map <- cbind(map, get_C(draws = ORs_for_Cscore,markers = map$marker))
       
-      colnames(q_orgs) <- c("emx_q","lfmm_q")
       map <- cbind(map,q_orgs)
       
       #=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=
@@ -618,7 +618,7 @@ if(TRUE){
       
       PR_data[[sub]] <- rbindlist(mclapply(1:nrow(ORs[[sub]]),function(x){
         get_PR_data(OR_data = ORs[[sub]][x],SNP_res=data$SNP_res,ld_test_th=ld_test_th,d_test_th=d_test_th,p_Va_th=p_Va_th)  
-      },mc.cores = 8))  
+      },mc.cores = cores))  
       
     }
     
@@ -636,7 +636,7 @@ if(TRUE){
                           rho_ld_lim = list(min=0.5, max=1.0),
                           rho_d_lim = list(min=0.90, max=1.0),
                           tau_C_lim = list(min=1e-6, max=0.5),
-                          n_cores=8,
+                          n_cores=cores,
                           n_rep = n_rep_C)
     
     
@@ -653,13 +653,17 @@ if(TRUE){
         
         get_PR_data(OR_data = ORs[[sub]][x],SNP_res=data$SNP_res,ld_test_th=ld_test_th,d_test_th=d_test_th,p_Va_th=p_Va_th)  
         
-      },mc.cores = 8))  
+      },mc.cores = cores))  
     }
     
     PR_data_C <- rbindlist(PR_data_C)
     
     ## save data in same folder with _PR suffix
-    saveRDS(list(PR_data=PR_data,PR_data_C=PR_data_C,ORs=data$ORs_for_Cscore,ORs_C=rbindlist(ORs)),paste0(out_folder,paste(data$SNP_res[1,.(c,V,rep)],collapse="_"),"_PR.rds"))
+    saveRDS(list(PR_data=PR_data,
+                 PR_data_C=PR_data_C,
+                 ORs=data$ORs_for_Cscore,
+                 ORs_C=rbindlist(ORs)),
+            paste0(out_folder,paste(data$SNP_res[1,.(c,V,rep)],collapse="_"),"_PR.rds"))
     
   }  
 }  
@@ -675,7 +679,7 @@ res_files <- list.files( "./results_sim/",full.names = TRUE)
 PR_files <- res_files[grepl("_PR.rds",res_files)]
 
 #PR_file <- PR_files[1]
-if(TRUE){
+if(!file.exists("./data/PR_AUC_data.rds")){
   PR_AUC_data <- list()
   
   for(PR_file in PR_files){
@@ -695,7 +699,8 @@ if(TRUE){
     
   }
   
-  saveRDS(PR_AUC_data,"./data/PR_AUC_data.rds")
+  ## data for all simulations already exists
+  saveRDS(PR_AUC_data,"./data/PR_AUC_data.rds") 
   
 }
 
@@ -796,7 +801,7 @@ if(!file.exists("./data/all_draws.rds")){
                                                       "EMX",
                                                       "EMX´",
                                                       "Joint"))]
-  
+  ## files already exist
   saveRDS(all_draws,"./data/all_draws.rds")
   saveRDS(all_qtn,"./data/all_qtn.rds")
 }
