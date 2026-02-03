@@ -9,9 +9,8 @@ editor_options:
 This repository contains code to reproduce the analyses presented in:
 
 > **Linkage disequilibrium scaling improves robustness and power to
-> detect genomic regions under selection** Petri Kemppainen & Frédéric
-> Guillaume *Proceedings of the National Academy of Sciences (PNAS)*, in
-> review
+> detect genomic regions under selection**
+> (<https://www.biorxiv.org/cgi/content/short/2026.01.19.700334v1>)
 
 The study introduces an LD-scaled association statistic (**F′**), a
 region-based outlier framework, and a consistency-based approach for
