@@ -218,8 +218,7 @@ parse_raw_data <- function(file_gz,
   # ---------------------------- #
   # 7) Save and clean up
   # ---------------------------- #
-  out_file <- paste0(file.path(outfolder,
-                               paste(params, collapse = "_")), ".rds")
+  out_file <- paste0(file.path(outfolder,paste(params, collapse = "_")), ".rds")
   saveRDS(
     list(
       GTs      = GTs,

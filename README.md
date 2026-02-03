@@ -45,6 +45,7 @@ containing this data exist but are empty.
 
 ```         
 ├── README.md
+├── example_simulated_data/             # Contains one example simulated data set
 ├── Nemo/                               # Input files related to simulations (partially empty)
 │   ├── generate_cmd_for_simulations.R/ # Main script to generate files for simulations       
 ├── R_sim/                              # Scripts to parse and analyse simulated data
@@ -121,13 +122,19 @@ Nemo/cmds.sh
 
 Each line starts a separate run on a cluster (sbatch).
 
-> **Note:** Raw Nemo outputs are large and not included here. Some of
-> the input files used for simulations are provided as well as processed
-> summary files used in the manuscript.
+> **Note:** Raw Nemo outputs are large and only one is included in the
+> Nemo/folder. Some of the input files used for simulations are provided
+> as well as processed summary files used in the manuscript.
 
 ------------------------------------------------------------------------
 
-### 2. Parsing and analysing simulated data
+### 2. Parsing simulated data
+
+-   Takes output from simulations (one example data set is provided:
+    ./Nemo/chr1_V0.5_c1_rep4.tar.gz) extracts neutral and causal loci
+    for 500 fixed individuals (./data/keep_500.rds) with maf\>0.05 and
+    produces files *GTs* and *map* and the environment (*env*) as well
+    as the Nemo output containing population genetic info (*sim_data*).
 
 ### 2. Association analyses
 
