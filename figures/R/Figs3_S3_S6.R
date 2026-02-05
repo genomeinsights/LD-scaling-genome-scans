@@ -266,7 +266,7 @@ p_s6 <- ggplot(dt_s6_long,
     panel.grid.major.y = element_blank()
   )
 
-pdf("./Figures/FigS6.pdf", width = 14, height = 7)
+pdf("./Figures/FigS6.pdf", width = 14, height = 14)
 p_s6
 dev.off()
 
