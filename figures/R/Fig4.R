@@ -1,3 +1,11 @@
+library(data.table)
+library(effectsize)
+library(egg)
+library(dplyr)
+library(stats)
+library(ggplot2)
+
+## from /R_sim/outlier_analyses_sim.R
 top_10 <- readRDS("./data/top_10.rds")
 
 dt2 <- melt(top_10[Method %in% c("'EMX'","'LFMM'","'LFMM´'","'EMX´'","'EMX-C'","'LFMM-C'","'LFMM´-C'","'EMX´-C'","'Joint-C'","'Joint'")],
@@ -11,9 +19,9 @@ dt2[variable=="rho_d",variable:="tau[d]"]
 dt2[variable=="l_min",variable:="l[min]"]
 dt2[variable=="C_th",variable:="C"]
 
-#dt2 <- melt(dt[Method %in% c("'EMX'","'LFMM'","'LFMM´'","'EMX´'","'EMX-C'","'LFMM-C'","'LFMM´-C'","'EMX´-C'","'Joint-C'","'Joint'")],measure.vars = c("precision","recall","PR"))
 
 dt3 <- dt2[,.(median=median(value),sd=sd(value)),by=.(Method,variable)]
+
 # format values
 df <- dt3 %>%
   mutate(value = sprintf("%.2f (%.2f)", median, sd)) %>%
@@ -128,7 +136,8 @@ p_PVE <- ggplot(eta_group_summary, aes(x = parameter, y = total_eta, fill = grou
 
 ### --- Detection power --- ###
 
-res_files <- list.files( "/Users/petrikem/gitlab/F_prime2/LD_based_outlier_analyses/results_sim/",full.names = TRUE)
+if(length(list.files("./results_sim/"))==0)
+res_files <- list.files( "./results_sim/",full.names = TRUE) ### available from Zenond
 PR_files <- res_files[grepl("_PR.rds",res_files)]
 all_qtn <- readRDS("./data/all_qtn.rds")
 
@@ -222,7 +231,8 @@ p_R <- ggplot(data_AUC[R!=0], aes(x = base_method, y = R, fill = AUC_meth)) +
         legend.background = element_blank(),
         axis.title.x = element_blank()
   )
-p_R
+#p_R
+
 #### ---- overall performance ---- ####
 
 

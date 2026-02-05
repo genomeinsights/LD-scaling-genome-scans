@@ -89,7 +89,7 @@ invisible(lapply(c("./R/emmax.R",                  ## EMMAX analyses
                    "./R/SLC.R",                    ## Single linkage clustering
                    "./R/d_from_rho.R"),            ## Distance in bp based on rho
                  source))
-
+if(!file.exists("./parsed_data/")) message("Please download files from Zenondo")
 #----------------------------------------------------------
 #  Functions specific for analysing simulated data, will not be part of the LDscnR package
 #----------------------------------------------------------

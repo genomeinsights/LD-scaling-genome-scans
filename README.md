@@ -36,7 +36,7 @@ population structure are strong. This project provides:
 All analyses are implemented in **R**. This repository contains to code
 to analyse data, all raw data and intermediate data files are available
 from Zenondo (10.5281/zenodo.18466057). Place holders for folders
-containing this data exist but are empty.
+containing this data contain only example data.
 
 ------------------------------------------------------------------------
 
@@ -44,19 +44,23 @@ containing this data exist but are empty.
 
 ```         
 ├── README.md
-├── example_simulated_data/             # Contains one example simulated data set
-├── Nemo/                               # Input files related to simulations (partially empty)
+├── Nemo/                               # Input files related to simulations (Zenondo)
 │   ├── generate_cmd_for_simulations.R/ # Main script to generate files for simulations       
 ├── R_sim/                              # Scripts to parse and analyse simulated data
-│   ├── parse_sim_data.R/                 # Parsing of simulate data  
-├── R_emp/                              # Scripts analyse empirical data
-├── empirical_data/                     # Empirical stickleback data (empty)
+│   ├── parse_sim_data.R/               # Parsing of simulate data  
+│   ├── outlier_analyses_sim.R/         # Main analyses of simulated data
+├── empirical_data/                     
+│   ├── 3sp/                            # Data for three-spined sticklebacks
+│   ├── 9sp/                            # Data for nine-spined sticklebacks
+│   ├── R/                              
+│     ├── 3sp_sticklebacks.R/           # R-code to analyses three-spined sticklebacks
+│     ├── 9sp_sticklebacks.R/           # R-code to analyses nine-spined sticklebacks
 ├── R/                                  # R-functions that are common for all analyses
 ├── figures/                            # Figures for manuscript
 │   └── R/                              # Scripts to reproduce manuscript figures
-└── data/                               # Intermediate data produced by analyses (empty)
-│   ├── parsed_data/                    # Parsed data from simulations (empty)
-│   ├── sim_results/                    # Results for analyses of simulated data (empty)
+└── data/                               # Intermediate data produced by analyses (Zenondo)
+│   ├── parsed_data/                    # Parsed data from simulations (Zenondo)
+│   ├── sim_results/                    # Results for analyses of simulated data (Zenondo)
 ```
 
 ------------------------------------------------------------------------
@@ -89,7 +93,7 @@ cd LD-scaling-genome-scans
 
 Restore the R environment:
 
-``` r
+```         
 renv::restore()
 ```
 
@@ -108,14 +112,14 @@ post-processed in R.
 
 Script:
 
-``` r
+```         
 Nemo/generate_cmd_for_simulations.R
 ```
 
 Produces all necessary input files for simulations. Creates file
 containing all command-line arguments:
 
-``` r
+```         
 Nemo/cmds.sh
 ```
 
@@ -137,7 +141,7 @@ Each line starts a separate run on a cluster (sbatch).
 
 ### 3. Simulated data: LD-scaled outlier detection and benchmarking
 
-``` r
+```         
 /R_sim/outlier_analyses_sim.R
 ```
 
@@ -162,81 +166,50 @@ power across demographic and selective scenarios. All intermediate and
 final results are saved to (./data/) and reused by downstream plotting
 and summary scripts.
 
-### 2. Association analyses
+### 4. Core R-functions
 
-Genotype–environment associations were computed using:
+Core R-functions are found in:
 
--   **LFMM**
--   **EMMAX**
-
-Scripts:
-
-``` r
-scripts/association/run_lfmm.R
-scripts/association/run_emmax.R
+```         
+/R/
 ```
 
-------------------------------------------------------------------------
-
-### 3. LD scaling and F′ statistic
-
-Local LD was summarized in sliding windows and used to compute the
-LD-scaled statistic **F′** via a permutation-based quantile
-transformation.
-
-Scripts:
-
-``` r
-scripts/ld_scaling/estimate_ld_decay.R
-scripts/ld_scaling/calc_Fprime.R
-```
-
-------------------------------------------------------------------------
-
-### 4. Outlier regions and consistency scores
-
-Outlier SNPs were clustered into **outlier regions (ORs)** based on LD
-and physical distance thresholds. Consistency scores (**C**) integrate
-results across parameter draws.
-
-Scripts:
-
-``` r
-scripts/outlier_regions/define_ORs.R
-scripts/benchmarking/consistency_scores.R
-```
-
-------------------------------------------------------------------------
-
-### 5. Benchmarking and figures
-
-Performance was evaluated using OR-level precision–recall metrics
-(**AUC-PR**\* and **AUC-PRC**).
-
-Scripts:
-
-``` r
-scripts/benchmarking/auc_pr.R
-scripts/figures/make_figures.R
-```
-
-------------------------------------------------------------------------
-
-## Empirical data availability
+### 4. Analyses of empirical stickleback data
 
 Empirical stickleback datasets originate from Fang et al. (2021):
 
 -   Zenodo accession: **4722879**
 
-Due to size, genotype data are **not redistributed** here. The
-repository assumes the user downloads these datasets separately and
-updates the paths in `scripts/config.R`.
+The analyses of three- and nine-spined sticklebacks follow the same
+pipeline as the simulated data, except the AUC-analyses that are only
+possible for data where the ground truth is known.
 
-------------------------------------------------------------------------
+```         
+/empirical_data/R/3sp_sticklebacks.R
+/empirical_data/R/9sp_sticklebacks.R
+```
+
+Code for Manhattan plots (for Fig. 5) are given in these files as well.
+Intermediate data files (LD-decay stats, and draws for different
+parameter combinations etc) are saved to:
+
+```         
+/empirical_data/3sp/
+/empirical_data/3sp/
+```
+
+Manhattanplots for the empirical data are joined with simulated data in
+the code for Fig5.
+
+```         
+/figures/R/Fig5.R
+```
+
+### 5. Figures
 
 ## Relation to LDscanR
 
-Core methods introduced here are implemented in the R package
+Core methods introduced here will be implemented in the R package
 **LDscanR**:
 
 > <https://github.com/genomeinsights/LDscanR>
@@ -252,13 +225,12 @@ If you use this code, please cite:
 
 > Kemppainen, P. & Guillaume, F. *Linkage disequilibrium scaling
 > improves robustness and power to detect genomic regions under
-> selection*. PNAS.
-
-(Updated with DOI upon acceptance.)
+> selection*.
+> <https://www.biorxiv.org/cgi/content/short/2026.01.19.700334v1>
 
 ------------------------------------------------------------------------
 
 ## Contact
 
-**Petri Kemppainen** University of Helsinki 📧
-[petri.kemppainen\@helsinki.fi](mailto:petri.kemppainen@helsinki.fi)
+**Petri Kemppainen** 📧
+[petri\@genomeinsights.fi](mailto:petri.kemppainen@helsinki.fi)
