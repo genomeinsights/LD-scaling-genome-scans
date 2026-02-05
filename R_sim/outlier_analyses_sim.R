@@ -868,13 +868,13 @@ if(!file.exists("./data/all_draws.rds")){
   
   par_map <- data.table(
     method = c("emx_F","lfmm_F","emx_F_prime","lfmm_F_prime","joint","C_emx_F","C_lfmm_F","C_emx_F_prime","C_lfmm_F_prime","C_joint"),
-    Method = c("EMX","LFMM","EMX´","LFMM´","Joint","EMX-C","LFMM-C","EMX´-C","LFMM´-C","Joint-C")
+    Method = c("'EMX'","'LFMM'","'EMX´'","'LFMM´'","'Joint'","'EMX-C'","'LFMM-C'","'EMX´-C'","'LFMM´-C'","'Joint-C'")
   )
   
   all_draws[,Method:=par_map$Method[match(method,par_map$method)]]
   
   all_draws[,AUC_meth := ifelse(grepl("C",method,fixed = TRUE),"PR[C]","PR^'*'")]
-  all_draws[,Method:=factor(Method,levels=c("EMX","EMX-C","LFMM","LFMM-C","EMX´","EMX´-C","LFMM´","LFMM´-C","Joint","Joint-C"))]
+  all_draws[,Method:=factor(Method,levels=c("'EMX'","'EMX-C'","'LFMM'","'LFMM-C'","'EMX´'","'EMX´-C'","'LFMM´'","'LFMM´-C'","'Joint'","'Joint-C'"))]
   
   all_draws[,sim:=factor(paste(gene_flow,selection_intensity,sep="\n"))]
   
@@ -882,16 +882,16 @@ if(!file.exists("./data/all_draws.rds")){
   
   par_map <- data.table(
     method = c("emx_F","lfmm_F","emx_F_prime","lfmm_F_prime","joint","C_emx_F","C_lfmm_F","C_emx_F_prime","C_lfmm_F_prime","C_joint"),
-    base_method = c("EMX","LFMM","EMX´","LFMM´","Joint","EMX","LFMM","EMX´","LFMM´","Joint")
+    base_method = c("'EMX'","'LFMM'","'EMX´'","'LFMM´'","'Joint'","'EMX'","'LFMM'","'EMX´'","'LFMM´'","'Joint'")
   )
   
   all_draws[,base_method:=par_map$base_method[match(method,par_map$method)]]
   
-  all_draws[,base_method:=factor(base_method,levels=c("LFMM",
-                                                      "LFMM´",
-                                                      "EMX",
-                                                      "EMX´",
-                                                      "Joint"))]
+  all_draws[,base_method:=factor(base_method,levels=c("'LFMM'",
+                                                      "'LFMM´'",
+                                                      "'EMX'",
+                                                      "'EMX´'",
+                                                      "'Joint'"))]
   ## files already exist
   saveRDS(all_draws,"./data/all_draws.rds")
   saveRDS(all_qtn,"./data/all_qtn.rds")
