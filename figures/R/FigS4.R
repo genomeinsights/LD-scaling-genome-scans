@@ -3,6 +3,7 @@
 #  Supplementary Figure S4
 #----------------------------------------------------------
 
+if(length(list.files("./data/"))==0) message("Please download data form Zenond")
 ## read data generated in ./R_sim/outlier_analyses_sim.R
 top_10 <- readRDS("./data/top_10.rds")
 data_AUC <- readRDS("./data/data_AUC.rds")

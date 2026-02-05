@@ -9,6 +9,8 @@ library(viridis)     # for scale_fill_viridis_c()
 library(cowplot)     # for plot_grid()
 library(gridExtra)   # only used for arranging columns (optional)
 
+if(length(list.files("./data/"))==0) message("Please download data form Zenond")
+
 ## -----------------------------
 ## 1) Load data
 ## -----------------------------

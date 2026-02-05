@@ -35,8 +35,7 @@ population structure are strong. This project provides:
 
 All analyses are implemented in **R**. This repository contains to code
 to analyse data, all raw data and intermediate data files are available
-from Zenondo (10.5281/zenodo.18466057). Place holders for folders
-containing this data contain only example data.
+from Zenondo (10.5281/zenodo.18466057).
 
 ------------------------------------------------------------------------
 
@@ -49,18 +48,18 @@ containing this data contain only example data.
 ├── R_sim/                              # Scripts to parse and analyse simulated data
 │   ├── parse_sim_data.R/               # Parsing of simulate data  
 │   ├── outlier_analyses_sim.R/         # Main analyses of simulated data
-├── empirical_data/                     
-│   ├── 3sp/                            # Data for three-spined sticklebacks
-│   ├── 9sp/                            # Data for nine-spined sticklebacks
+├── empirical_data/                     # 
+│   ├── 3sp/                            # Dowload from Zenondo
+│   ├── 9sp/                            # Dowload from Zenondo
 │   ├── R/                              
 │     ├── 3sp_sticklebacks.R/           # R-code to analyses three-spined sticklebacks
 │     ├── 9sp_sticklebacks.R/           # R-code to analyses nine-spined sticklebacks
 ├── R/                                  # R-functions that are common for all analyses
 ├── figures/                            # Figures for manuscript
 │   └── R/                              # Scripts to reproduce manuscript figures
-└── data/                               # Intermediate data produced by analyses (Zenondo)
-│   ├── parsed_data/                    # Parsed data from simulations (Zenondo)
-│   ├── sim_results/                    # Results for analyses of simulated data (Zenondo)
+└── data/                               # Dowload from Zenondo
+└── parsed_data/                        # Dowload from Zenondo
+└── sim_results/                        # Dowload from Zenondo
 ```
 
 ------------------------------------------------------------------------

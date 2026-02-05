@@ -5,6 +5,7 @@ library(dplyr)
 library(stats)
 library(ggplot2)
 
+if(!file.exists("./data/")) message("Please downlad files form Zenondo")
 ## from /R_sim/outlier_analyses_sim.R
 top_10 <- readRDS("./data/top_10.rds")
 
@@ -136,7 +137,7 @@ p_PVE <- ggplot(eta_group_summary, aes(x = parameter, y = total_eta, fill = grou
 
 ### --- Detection power --- ###
 
-if(length(list.files("./results_sim/"))==0)
+  
 res_files <- list.files( "./results_sim/",full.names = TRUE) ### available from Zenond
 PR_files <- res_files[grepl("_PR.rds",res_files)]
 all_qtn <- readRDS("./data/all_qtn.rds")

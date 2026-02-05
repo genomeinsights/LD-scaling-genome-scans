@@ -6,6 +6,8 @@ library(stats)
 library(ggplot2)
 
 
+if(!file.exists("./results_sim/")) message("Please downlad files form Zenondo")
+
 invisible(lapply(c("./R/get_ld_w_draws.R",         ## Generates w for ld_w for drawn w-values
                    "./R/plot_manhattan.R"),         ## Function for manhattan plots
                    source))

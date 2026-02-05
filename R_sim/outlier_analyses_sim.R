@@ -89,6 +89,7 @@ invisible(lapply(c("./R/emmax.R",                  ## EMMAX analyses
                    "./R/SLC.R",                    ## Single linkage clustering
                    "./R/d_from_rho.R"),            ## Distance in bp based on rho
                  source))
+
 if(!file.exists("./parsed_data/")) message("Please download files from Zenondo")
 #----------------------------------------------------------
 #  Functions specific for analysing simulated data, will not be part of the LDscnR package
@@ -393,11 +394,6 @@ out_folder <- "./results_sim/"
 keep_125 <-readRDS("./data/keep_inds_125.rds")
 cores <- 8 # cores to use
 
-# res_files <- list.files( "./results_sim/",full.names = TRUE)
-# res_files <- res_files[!grepl("PR",res_files)]
-# res_files <- res_files[grep("rds",res_files)]
-
-#fil <- files_split[[1]]
 
 if(FALSE){
   message("\n\n#### ==== Starting outlier analyses ==== ####\n\n")
