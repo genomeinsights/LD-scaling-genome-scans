@@ -47,4 +47,3 @@ coef_ld_dec <- function(el_ld, q = 0.95, dist_unit = 5000, b = 0.05) {
   }, error = function(e) NULL)
   coef(fit)
 }
-"grey"

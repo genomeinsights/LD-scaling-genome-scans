@@ -76,18 +76,16 @@ library(ggsci)
 #  These are the core functions that will be included in the forthcoming LDscnR R-package
 #----------------------------------------------------------
 
-invisible(lapply(c("./R/emmax.R",                  ## EMMAX analyses
-                   "./R/scale_F_with_ldw.R",       ## LD-scaling
-                   "./R/coef_ld_dec.R",            ## helper for estimating LD-decay
-                   "./R/get_bg_ld.R",              ## get background LD
-                   "./R/get_C.R",                  ## Retrieves C-values from OR-data   
-                   "./R/get_el.R",                 ## Helper function to get edge list from gds file
-                   "./R/get_ld_w_draws.R",         ## Generates w for ld_w for drawn w-values
-                   "./R/ld_decay.R",               ## Estimate LD-decay
-                   "./R/ORs_from_draws.R",         ## Gets outlier regions from drawn values
-                   "./R/plot_manhattan.R",         ## Function for manhattan plots
-                   "./R/SLC.R",                    ## Single linkage clustering
-                   "./R/d_from_rho.R"),            ## Distance in bp based on rho
+invisible(lapply(c("./R_new/emmax.R",                  ## EMMAX analyses
+                   "./R_new/scale_F_with_ldw.R",       ## LD-scaling
+                   "./R_new/get_bg_ld.R",                  ## get background LD
+                   "./R_new/get_C.R",                      ## Retrieves C-values from OR-data   
+                   "./R_new/get_el.R",                 ## Helper function to get edge list from gds file
+                   "./R_new/get_ld_w_draws.R",         ## Generates w for ld_w for drawn w-values
+                   "./R_new/ld_decay.R",               ## Estimate LD-decay
+                   "./R_new/ORs_from_draws.R",         ## Gets outlier regions from drawn values
+                   "./R_new/SLC.R",                    ## Single linkage clustering
+                   "./R_new/d_from_rho.R"),            ## Distance in bp based on rho
                  source))
 
 if(!file.exists("./parsed_data/")) message("Please download files from Zenondo")
@@ -175,11 +173,21 @@ focal_QTN <- function(gds,map){
 #   d_test_th - distance threshold defining true positive (in LD-decay units, rho)
 #   p_Va_th - Threshold for defining true positive focal QTn
 ###
-get_PR_data <- function(OR_data,SNP_res,ld_test_th=0.75,d_test_th=0.95,p_Va_th=0.05){
-  ors <- unlist(OR_data$ORs,recursive = FALSE)
+get_PR_data <- function(OR_data,
+                        SNP_res,
+                        ld_test_th = 0.75,
+                        d_test_th  = 0.95,
+                        p_Va_th    = 0.05) {
   
-  if(length(na.omit(ors))!=0){
-    #or <- ors[[1]]
+  ## enforce single-method input
+  if (length(unique(OR_data$method)) != 1) {
+    stop("get_PR_data() must be applied to one method at a time.")
+  }
+  
+  ors <- OR_data$ORs[[1]]
+  true <- SNP_res[p_Va > p_Va_th, unique(focal_QTN)]
+  
+  if (length(ors) > 0) {
     OR_focals <- unlist(lapply(ors,function(or){
       
       unique(SNP_res[marker %in% or & 
@@ -204,29 +212,59 @@ get_PR_data <- function(OR_data,SNP_res,ld_test_th=0.75,d_test_th=0.95,p_Va_th=0
     FP_ntrl <- sum(sapply(ors,function(or){
       length(SNP_res[marker %in% or & Chr_type=="ntrl",marker])>0
     }))
+    # 
+    # focal_per_or <- vapply(ors, function(or) {
+    #   hit <- SNP_res[
+    #     marker %in% or &
+    #       rho_ld < ld_test_th &
+    #       rho_d  < d_test_th
+    #   ]
+    #   if (nrow(hit) == 0) return(NA_character_)
+    #   hit[which.min(rho_ld), focal_QTN]
+    # }, character(1))
+    # 
+    # true <- SNP_res[p_Va > p_Va_th, unique(focal_QTN)]
+    # TP <- sum(focal_per_or %in% true)
+    # FP <- length(focal_per_or) - TP
+    # FN <- length(setdiff(true, unique(focal_per_or[focal_per_or %in% true])))
+    # 
+    # precision <- TP/(TP+FP)
+    # recall <- TP/(TP+FN)
+    # PR = precision*recall
+    # 
+    # FP_ntrl <- sum(sapply(ors,function(or){
+    #   length(SNP_res[marker %in% or & Chr_type=="ntrl",marker])>0
+    # }))
     
-    return(data.table(OR_data[1,],
-                      TP,
-                      FP,
-                      FN,
-                      precision,
-                      recall,
-                      PR,
-                      FP_ntrl,
-                      OR_focals=list(OR_focals))) 
-  }else{
+    return(data.table::data.table(
+      OR_data[1],
+      TP = TP,
+      FP = FP,
+      FN = FN,
+      precision = precision,
+      recall = recall,
+      PR = PR,
+      FP_ntrl = FP_ntrl,
+      OR_focals = list(OR_focals)
+    ))
     
-    return(data.table(OR_data[1,],
-                      TP=0,
-                      FP=0,
-                      FN=length(SNP_res[p_Va>p_Va_th,unique(focal_QTN)] ),
-                      precision = 0,
-                      recall = 0,
-                      PR = 0,
-                      FP_ntrl = 0,
-                      OR_focals= list(NA)))
+  } else {
+    
+    return(data.table::data.table(
+      OR_data[1],
+      TP = 0,
+      FP = 0,
+      FN = length(true),
+      precision = 0,
+      recall = 0,
+      PR = 0,
+      FP_ntrl = 0,
+      OR_focals = list(character())
+    ))
   }
 }
+
+
 
 
 ### ---  Get oulier regions from C-scores --- ###
@@ -240,99 +278,99 @@ get_ORs_from_C <- function(GTs,
                            map,
                            C_vals,
                            decay_tbl, 
-                           rho_ld_lim = list(min=0.5, max=1.0),
-                           rho_d_lim = list(min=0.90, max=1.0),
-                           tau_C_lim = list(min=1e-6, max=0.5),
-                           n_cores=1,
-                           n_rep=500
-){
+                           rho_ld_lim = list(min = 0.5, max = 1.0),
+                           rho_d_lim  = list(min = 0.90, max = 1.0),
+                           tau_C_lim  = list(min = 1e-6, max = 0.5),
+                           n_cores    = 1,
+                           n_rep      = 500) {
   
-  ## create gds
-  gds_path = tempfile(fileext = ".gds")
-  gds <- create_gds_from_geno(geno = GTs, map=map,gds_path)
-  on.exit({ snpgdsClose(gds); unlink(gds_path) }, add = TRUE) 
+  ## ---- create GDS ----
+  gds_path <- tempfile(fileext = ".gds")
+  gds <- create_gds_from_geno(geno = GTs, map = map, gds_path)
+  on.exit({ snpgdsClose(gds); unlink(gds_path) }, add = TRUE)
   
-  
-  ## get outliers
-  C_vals <- as.matrix(C_vals)
   ids <- read_gds_ids(gds)
+  C_vals <- as.matrix(C_vals)
+  methods <- colnames(C_vals)
   
-  ## Analyse only SNPs that have C>0 for any of the C-scores
-  all_outliers <- ids$snp_id[apply(C_vals,1,max)>0]
+  ## ---- restrict to SNPs with any signal ----
+  keep <- apply(C_vals, 1, max) > 0
+  snps_keep <- ids$snp_id[keep]
+  idx_keep  <- which(keep)
   
-  idx <- which(ids$snp_id %in% all_outliers)
-  
-  outl_chromosomes <- ids$snp_chr[idx]
-  
-  chrs <- unique(outl_chromosomes)
-  
-  ## get LD-edge list for each chromosome
-  el_chr <- list()
-  
-  for(ch in chrs){
-    outl_ch <- all_outliers[outl_chromosomes==ch]
-    
-    el_chr[[ch]] <- get_el(gds = gds,
-                           idx =  which(ids$snp_id %in% outl_ch),
-                           slide_win_ld = -1, ## user all pairwise comparisons
-                           n_cores = n_cores)
+  if (length(idx_keep) == 0) {
+    return(data.table())
   }
   
-  el_chr <- rbindlist(el_chr)
+  ## ---- build LD edge lists per chromosome ----
+  el_chr <- rbindlist(lapply(unique(ids$snp_chr[idx_keep]), function(ch) {
+    idx <- idx_keep[ids$snp_chr[idx_keep] == ch]
+    get_el(gds, idx = idx, slide_win_ld = -1, n_cores = n_cores)
+  }))
   
-  ## get ORs
-  n_sub <- n_rep/500
-  ORs <- list()
+  ## ---- OR draws ----
+  out <- vector("list", n_rep)
   
-  for(sub in 1:n_sub){
-    cat(paste0(sub/n_sub*100,"%"),"..")
+  for (r in seq_len(n_rep)) {
     
-    ORs[[sub]] <- rbindlist(mclapply(1:500,function(x){
-      tau_C <- runif(1,tau_C_lim$min,tau_C_lim$max)
-      rho_ld <- runif(1,rho_ld_lim$min,rho_ld_lim$max)
-      rho_d <- runif(1,rho_d_lim$min,rho_d_lim$max)
+    tau_C  <- runif(1, tau_C_lim$min,  tau_C_lim$max)
+    rho_ld <- runif(1, rho_ld_lim$min, rho_ld_lim$max)
+    rho_d  <- runif(1, rho_d_lim$min,  rho_d_lim$max)
+    
+    ## thresholds per chromosome
+    d_th_by_chr <- setNames(
+      d_from_rho(decay_tbl$summary$a, rho_d),
+      decay_tbl$summary$Chr
+    )
+    
+    ld_th_by_chr <- setNames(
+      decay_tbl$summary$b + (1 - decay_tbl$summary$b) * (1 - rho_ld),
+      decay_tbl$summary$Chr
+    )
+    
+    el_chr[, d_th  := d_th_by_chr[Chr1]]
+    el_chr[, ld_th := ld_th_by_chr[Chr1]]
+    
+    mean_d_th  <- mean(el_chr$d_th,  na.rm = TRUE)
+    mean_ld_th <- mean(el_chr$ld_th, na.rm = TRUE)
+    
+    ## ---- per-method ORs ----
+    out[[r]] <- rbindlist(lapply(seq_along(methods), function(i) {
       
-      if(length(el_chr)>0){
-        ## get thresholds based on drawn rho values
-        d_th_by_chr <- setNames(as.integer(d_from_rho(decay_tbl$summary$a, rho_d)), decay_tbl$summary$Chr)
-        ld_th_by_chr <- setNames(decay_tbl$summary$b + (1 - decay_tbl$summary$b) * (1 - rho_ld), decay_tbl$summary$Chr) 
-        el_chr[,d_th:=d_th_by_chr[Chr1]]
-        el_chr[,ld_th:=ld_th_by_chr[Chr1]]
-      }
+      me <- methods[i]
+      outl_me <- ids$snp_id[C_vals[, i] > tau_C]
       
-      if (length(el_chr) == 0){
-        ORs <- data.table(method=colnames(C_vals),mean_d_th_OR=NA,mean_ld_th_OR=NA,ORs=list(NA))
+      ed <- el_chr[
+        r2 > ld_th & d < d_th &
+          SNP1 %in% outl_me & SNP2 %in% outl_me,
+        .(SNP1, SNP2)
+      ]
+      
+      if (nrow(ed) == 0L) {
+        ors <- list()
       } else {
-        
-        ORs <- rbindlist(lapply(1:ncol(C_vals),function(i){
-          
-          outl_me <- ids$snp_id[C_vals[,i]>tau_C]
-          
-          ed <- el_chr[r2 > ld_th & d < d_th & SNP1 %in% outl_me & SNP2 %in% outl_me ,.(SNP1, SNP2)]
-          
-          if (nrow(ed) < 1){
-            return(data.table(method=colnames(C_vals)[i],mean_d_th_OR=mean(el_chr$d_th),mean_ld_th_OR=mean(el_chr$d_th),ORs=list(NA)))
-            next
-          } 
-          
-          g <- graph_from_data_frame(ed, directed = FALSE)
-          comps <- decompose(g)
-          ors <- lapply(comps, function(cc) V(cc)$name)
-          
-          names(ors) <- seq_len(length(ors))
-          
-          return(data.table(method=colnames(C_vals)[i],mean_d_th_OR=mean(el_chr$d_th),mean_ld_th_OR=mean(el_chr$ld_th),ORs=list(ors)))
-        }))
-        
+        g <- igraph::graph_from_data_frame(ed, directed = FALSE)
+        comps <- igraph::components(g)
+        ors <- split(names(comps$membership), comps$membership)
+        names(ors) <- seq_along(ors)
       }
       
-      #Return draw
-      cbind(tau_C=tau_C,rho_d=rho_d,rho_ld=rho_ld,ORs)
-    },mc.cores=n_cores))
+      data.table(
+        method = me,
+        tau_C  = tau_C,
+        rho_d  = rho_d,
+        rho_ld = rho_ld,
+        mean_d_th_OR  = mean_d_th,
+        mean_ld_th_OR = mean_ld_th,
+        ORs = list(ors)
+      )
+    }))
   }
   
-  return(rbindlist(ORs))
+  rbindlist(out)
 }
+
+
 
 
 
@@ -381,20 +419,22 @@ pal <- wes_palette("Zissou1", 21, type = "continuous")
 
 # parsed files generated by ./R_simulations/Parse_raw_data_sim.R
 files <- list.files("./parsed_data/",full.names = TRUE)
-files <- files[grep("V0.5_c1_rep4",files)]
+
+#files <- files[grep("V0.5_c1_rep4",files)]
+
 # split them into replicates (n=10) with the same landscape but different recombination maps, here only one replicate is provided (full data from Zenondo)
 tmp <- do.call(rbind,strsplit(files,"/",fixed=TRUE))[,4]
 
 files_split <- split(files, gsub(".rds","",apply(do.call(rbind,strsplit(tmp,"_",fixed=TRUE))[,2:4],1,paste,collapse="_")))
 
-out_folder <- "./results_sim/"
+out_folder <- "./results_sim_new/"
 
 # These are the pre-drawn individuals used for all
 # Note that the parsed data contains data for 500 individuals, and these are a subsample of those
 keep_125 <-readRDS("./data/keep_inds_125.rds")
 cores <- 8 # cores to use
 
-fil <- files_split[[1]]
+# fil <- files_split[[1]]
 if(FALSE){
   message("\n\n#### ==== Starting outlier analyses ==== ####\n\n")
   
@@ -436,14 +476,14 @@ if(FALSE){
       
       ## recalculate maf for the subsample and filter anew
       
-      maf_new <- colSums(GTs)/nrow(GTs)
+      maf_new <- colSums(GTs)/nrow(GTs)/2
       maf_new <- ifelse(maf_new<0.5,maf_new,1-maf_new)
       map[,maf:=maf_new]
       GTs <- GTs[,maf_new>0.05]
       map <- map[maf>0.05]
       
-      
       ## generate gds file
+      if(any(ls() %in% gds_path))snpgdsClose(gds); unlink(gds_path)
       gds_path = tempfile(fileext = ".gds")
       gds <- create_gds_from_geno(geno = GTs, map=map,gds_path)
       
@@ -490,6 +530,7 @@ if(FALSE){
                                     slide_win_ld = 1000,
                                     window_size = 1e6,
                                     step_size = 5e5,
+                                    dist_unit = 5000,
                                     n_cores_ld =  cores)
         
         ## LD pruning
@@ -537,39 +578,11 @@ if(FALSE){
       decay_tbl_final$data <- rbindlist(lapply(decay_tbl,function(x) x$data))
       decay_tbl_final$summary <- rbindlist(lapply(decay_tbl,function(x) x$summary))
       
-      ## generate ld_w for draws
-      
-      message("Draw ld_w \n")
-      ld_w_draws <- get_ld_w_draws(gds,decay_tbl = decay_tbl_final,slide_win_ld = 1000,n_draws = 200,min = 0.75,max = 1,n_cores = cores)
-      
-      cat("get ORs from draws \n")
-      
-      df2 = n_inds-2
-      q_orgs <- apply(F_vals,2,function(Fval){
-        p <- pf(Fval, df1=1, df2, lower.tail = FALSE)
-        q <- p.adjust(p,"fdr")
-      })
-      colnames(q_orgs) <- c("emx_q","lfmm_q")
-      
-      ## get ORs for draws; 200 ld_w vectors and 25 randomly sampled parameter values for each of them
-      ORs_for_Cscore <- get_ORs_for_draw(gds,
-                                         F_vals = map[,.(emx_F,lfmm_F)],
-                                         q_orgs = q_orgs,
-                                         decay_tbl = decay_tbl_final,
-                                         ld_w_draws = ld_w_draws,
-                                         n_inds=nrow(GTs),
-                                         n_draws = 25,
-                                         rho_OR_lim = NULL,
-                                         rho_ld_lim = list(min=0.5, max=1.0),
-                                         rho_d_lim = list(min=0.90, max=1.0),
-                                         alpha_lim = list(min=-log10(0.05), max=4),
-                                         lmin_lim = list(min=1, max=10),
-                                         n_cores = 8)
-      
-      ## get C-score and collect data
-      map <- cbind(map, get_C(draws = ORs_for_Cscore,markers = map$marker))
-      
-      map <- cbind(map,q_orgs)
+      ## add decay info to map
+      as <- setNames(decay_tbl_final$summary$a,decay_tbl_final$summary$Chr)
+      bs <- setNames(decay_tbl_final$summary$b,decay_tbl_final$summary$Chr)
+      map[,a := as[Chr]]
+      map[,b := bs[Chr]]
       
       # ---------------------------------- #
       # Get focal QTN and associated data
@@ -587,18 +600,60 @@ if(FALSE){
       map[Chr_type=="ntrl",max_LD_with_QTN:=0]
       map[type=="QTN",focal_QTN:=marker]
       
-      ## add decay info
-      as <- setNames(decay_tbl_final$summary$a,decay_tbl_final$summary$Chr)
-      bs <- setNames(decay_tbl_final$summary$b,decay_tbl_final$summary$Chr)
-      map[,a := as[Chr]]
-      map[,b := bs[Chr]]
       
       ## calculate distance to focal QTN expressed in LD-scaled units (rho)
       map[,rho_d := a*bp_to_focal_QTN/(a*bp_to_focal_QTN+1)]
       map[,rho_ld := 1-(max_LD_with_QTN-b)/(1 - b)]
+      ## generate ld_w for draws
+      
+      message("Draw ld_w \n")
+      ld_w_draws <- get_ld_w_draws(gds,decay_tbl = decay_tbl_final,slide_win_ld = 1000,n_draws = 200,rho_min = 0.75,rho_max = 0.99999)
+      
+      x <- 21
+      cor_ldw <- sapply(unique(ld_w_draws$draw),function(x){
+        ld_w <- rbindlist(ld_w_draws[draw==x,ld_w])
+        cor(map$max_LD_with_QTN,ld_w[match(ids$snp_id,SNP),median_r2],use = "pair")^2  
+      })
+      
+      map[,ldw_best:=ld_w[match(ids$snp_id,SNP),median_r2]]
+      
+      ld_w <- rbindlist(ld_w_draws[draw==which.max(cor_ld_w),ld_w])
+      
+      cor_ldw_rhow <- data.table(rho_w=ld_w_draws[Chr=="Chr1",rho_w],cor_ldw=cor_ldw)
+      
+      
+      cat("get ORs from draws \n")
+      
+      df2 = n_inds-2
+      
+      q_vals <- apply(map[,.(emx_F,lfmm_F)],2,function(Fval){
+        p <- pf(Fval, df1=1, df2, lower.tail = FALSE)
+        q <- p.adjust(p,"fdr")
+      })
+      colnames(q_vals) <- c("emx_q","lfmm_q")
+      
+      map <- cbind(map, q_vals)
+      
+      ## get ORs for draws; 200 ld_w vectors and 25 randomly sampled parameter values for each of them
+      ORs_for_Cscore <- get_ORs_for_draw(gds,
+                                         F_vals=map[,.(emx_F,lfmm_F)],
+                                         q_orgs=map[,.(emx_q,lfmm_q)],
+                                         decay_tbl = decay_tbl_final,
+                                         ld_w_draws = ld_w_draws,
+                                         n_inds=nrow(GTs),
+                                         n_draws = 25,
+                                         rho_OR_lim = NULL,
+                                         rho_ld_lim = list(min=0.5, max=1.0),
+                                         rho_d_lim = list(min=0.90, max=1.0),
+                                         alpha_lim = list(min=-log10(0.05), max=4),
+                                         lmin_lim = list(min=1, max=10),
+                                         n_cores = 8)
+      
+      ## get C-score and collect data
+      map <- cbind(map, get_C(draws = ORs_for_Cscore,markers = map$marker))
       
       ## save data
-      out <- list(SNP_res=map,GTs=GTs,ORs_for_Cscore=ORs_for_Cscore,decay_tbl=decay_tbl_final)
+      out <- list(SNP_res=map,GTs=GTs,ORs_for_Cscore=ORs_for_Cscore,decay_tbl=decay_tbl_final,cor_ldw_rhow=cor_ldw_rhow)
       base_name <- paste(map[1,.(c,V,rep)],collapse="_")
       
       saveRDS(out,paste0(out_folder,paste(map[1,.(c,V,rep)],collapse="_"),".rds"))
@@ -618,7 +673,7 @@ cat("\n\n#### ==== Done with outlier analyses ==== ####\n\n")
 
 message("\n\n#### ==== Getting true anf false positive ORs ==== ####\n\n")
 
-out_folder <- "./results_sim/"
+out_folder <- "./results_sim_new/"
 
 res_files <- list.files(out_folder,full.names = TRUE)
 done <- res_files[grepl("_PR.rds",res_files)]
@@ -649,7 +704,7 @@ if(TRUE){
       
       PR_data[[sub]] <- rbindlist(mclapply(1:nrow(ORs[[sub]]),function(x){
         get_PR_data(OR_data = ORs[[sub]][x],SNP_res=data$SNP_res,ld_test_th=ld_test_th,d_test_th=d_test_th,p_Va_th=p_Va_th)  
-      },mc.cores = cores))  
+      },mc.cores = 4))  
       
     }
     
@@ -674,9 +729,12 @@ if(TRUE){
     
     ORs <- split(ORs,rep(1:(nrow(ORs)/1000),each=1000))  
     n_sub <- length(ORs)
-    
+    #gc()
     ## PR from C-scores
     PR_data_C <- list()
+    #sub <- 1
+    # x <-
+    
     for(sub in 1:n_sub){
       cat(paste0(round(sub/n_sub*100),"%"),"..")
       
@@ -684,12 +742,15 @@ if(TRUE){
         
         get_PR_data(OR_data = ORs[[sub]][x],SNP_res=data$SNP_res,ld_test_th=ld_test_th,d_test_th=d_test_th,p_Va_th=p_Va_th)  
         
-      },mc.cores = cores))  
+        
+      },mc.cores = 4))  
     }
+    
     
     PR_data_C <- rbindlist(PR_data_C)
     
     ## save data in same folder with _PR suffix
+    
     saveRDS(list(PR_data=PR_data,
                  PR_data_C=PR_data_C,
                  ORs=data$ORs_for_Cscore,
@@ -706,7 +767,7 @@ if(TRUE){
 message("\n\n#### ==== Attaining AUC data ==== ####\n\n")
 
 
-res_files <- list.files( "./results_sim/",full.names = TRUE)
+res_files <- list.files( "./results_sim_new/",full.names = TRUE)
 PR_files <- res_files[grepl("_PR.rds",res_files)]
 
 #PR_file <- PR_files[1]
@@ -729,15 +790,12 @@ if(!file.exists("./data/PR_AUC_data.rds")){
     PR_AUC_data[[PR_file]] <- AUC
     
   }
-  
-  
-  
+
 }
 
 
-
-
-data_AUC <- rbindlist(lapply(readRDS("./data/PR_AUC_data.rds"),function(x)x$AUC))
+data_AUC <- rbindlist(lapply(PR_AUC_data,function(x)x$AUC))
+saveRDS(data_AUC,"./data/data_AUC.rds")
 
 ### === clean up names === ###  
 par_map <- data.table(

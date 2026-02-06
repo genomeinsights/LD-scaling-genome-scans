@@ -1,5 +1,5 @@
 library(data.table)
-emmax <- function(Y,X,K,B=NULL,binary=FALSE,Covar=NULL,cores=1) {
+emmax_org <- function(Y,X,K,B=NULL,binary=FALSE,Covar=NULL,cores=1) {
   
   #The SNP based single-locus association test applied to wild data which accounts for relatedness structure.
   #Reference: Li Z, Kemppainen P, Rastas P, Merila, J. Linkage disequilibrium clustering-based approach for association mapping with tightly linked genome-wide data
