@@ -6,110 +6,111 @@
 #'
 #' For each draw:
 #' \enumerate{
-#'   \item A quantile \eqn{\rho_w \sim \mathrm{Uniform}(\mathrm{min}, \mathrm{max})} is sampled.
+#'   \item A quantile \eqn{\rho_w \sim \mathrm{Uniform}(\rho_{\min}, \rho_{\max})} is sampled.
 #'   \item The corresponding physical distance threshold \eqn{d_{\rho_w}} is computed from
 #'         the LD-decay rate \code{a} (using \code{\link{d_from_rho}}).
 #'   \item For each SNP, \eqn{ld_w} is computed as the median \eqn{r^2} between that SNP and
 #'         all other SNPs on the same chromosome within distance \eqn{d_{\rho_w}}.
 #' }
 #'
-#' The result is a long-format table with one row per chromosome × draw combination,
-#' and a list-column containing per-SNP \eqn{ld_w} values for that combination.
+#' @param gds An open GDS object.
+#' @param decay_tbl Output from \code{\link{ld_decay}} (must contain \code{$summary} with per-chromosome \code{a}).
+#' @param slide_win_ld Integer, sliding window size (in SNPs) passed to \code{\link[SNPRelate]{snpgdsLDMat}} via \code{\link{get_el}}.
+#' @param n_draws Integer, number of LD-window draws (distinct \code{rho_w}) to generate.
+#' @param rho_min Numeric in (0,1). Lower bound of Uniform(\code{rho_min}, \code{rho_max}) for \code{rho_w}.
+#' @param rho_max Numeric in (0,1). Upper bound of Uniform(\code{rho_min}, \code{rho_max}) for \code{rho_w}.
+#' @param n_cores Integer, number of cores used for LD calculations (passed to \code{get_el}).
 #'
-#' @param gds An open GDS object containing genotype data (see
-#'   \code{\link[SNPRelate]{snpgdsCreateGeno}} and \code{\link[SNPRelate]{snpgdsOpen}}).
-#' @param slide_win_ld Integer, sliding window size (in SNPs) passed to
-#'   \code{\link[SNPRelate]{snpgdsLDMat}} when computing LD. Defaults to \code{1000}.
-#' @param n_draws Integer, number of LD-window draws (i.e. distinct \eqn{\rho_w} values)
-#'   to generate. Defaults to \code{100}.
-#' @param min Numeric, lower bound of the uniform distribution for \eqn{\rho_w}. Defaults
-#'   to \code{0.9}.
-#' @param max Numeric, upper bound of the uniform distribution for \eqn{\rho_w}. Defaults
-#'   to \code{1.0}.
-#' @param n_cores Integer, number of CPU cores to use for internal LD calculations. Currently
-#'   passed to \code{\link{get_el}}. Defaults to \code{1}.
-#'
-#' @details
-#' This function relies on:
-#' \itemize{
-#'   \item \code{\link{read_gds_ids}} to obtain SNP IDs, chromosomes, and positions.
-#'   \item \code{\link{get_el}} to compute pairwise LD (\eqn{r^2}) and distances per chromosome.
-#'   \item \code{\link{d_from_rho}} to convert LD-decay parameters and \eqn{\rho_w} to a
-#'         physical distance threshold \eqn{d_{\rho_w}}.
-#' }
-#'
-#' In the current implementation, the LD-decay rate \code{a} is taken from a global object
-#' \code{LD_decay_3sp$summary}, which should contain per-chromosome estimates of the decay
-#' parameter \code{a}. For use in a package, this would typically be refactored to pass the
-#' decay summary explicitly as an argument.
-#'
-#' @return A \code{data.table} with one row per chromosome × draw combination, containing:
-#' \itemize{
-#'   \item \code{Chr}: chromosome identifier.
-#'   \item \code{draw}: integer index of the draw (\code{1:n_draws}).
-#'   \item \code{rho_w}: sampled quantile \eqn{\rho_w} used to define the LD window.
-#'   \item \code{d_th}: physical distance threshold (in bp) corresponding to \eqn{\rho_w}.
-#'   \item \code{ld_w}: list-column, each element a \code{data.table} with columns
-#'         \code{SNP1} and \code{median_r2}, giving the local LD measure for each SNP
-#'         on that chromosome.
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' ld_w_draws <- get_ld_w_draws(
-#'   gds          = gds,
-#'   slide_win_ld = 1000,
-#'   n_draws      = 100,
-#'   min          = 0.9,
-#'   max          = 1.0,
-#'   n_cores      = 4
-#' )
-#'
-#' head(ld_w_draws)
-#' }
+#' @return A \code{data.table} with one row per chromosome × draw, containing \code{Chr}, \code{draw},
+#'   \code{rho_w}, \code{d_th}, and a list-column \code{ld_w}. Each \code{ld_w} element is a
+#'   \code{data.table} with columns \code{SNP} and \code{median_r2} (one row per SNP on that chromosome).
 #'
 #' @export
-#' 
-
-get_ld_w_draws <- function(gds, decay_tbl,slide_win_ld=1000, n_draws = 100, min=0.9, max=1, n_cores=1){
+get_ld_w_draws <- function(gds,
+                           decay_tbl,
+                           slide_win_ld = 1000,
+                           n_draws = 100,
+                           rho_min = 0.9,
+                           rho_max = 1.0) {
+  
   t1 <- Sys.time()
   
-  ids <- read_gds_ids(gds)
+  if(rho_max==1) rho_max <- rho_max-1e-9
   
-  ld_w <- list()
-  
-  chrs <- unique(ids$snp_chr)
-  rho_ws <- runif(n_draws,min,max)
-  #ch <- chrs[1]
-  for(ch in chrs){
-    cat(ch,"..")
-    idx <- which(ids$snp_chr==ch)
-    
-    el <- get_el(gds,idx,slide_win_ld=slide_win_ld, n_cores=n_cores)
-    
-    #rho_w <- rho_ws[1]
-    ld_w[[ch]] <- rbindlist(lapply(rho_ws,function(rho_w){
-      
-      
-      d_th <- as.integer(d_from_rho(decay_tbl$summary[Chr==ch,a],rho_w))
-      
-      out <- el[d<d_th,.(median_r2=median(r2,na.rm = TRUE)),by=SNP1]
-      out <- out[match(ids$snp_id[idx],SNP1)]
-      data.table(Chr=ch,
-                 rho_w=rho_w,
-                 d_th=d_th,
-                 ld_w=list(out))
-    }))
-    #gc()
-    ld_w[[ch]][,draw:=.I]
+  n_draws <- as.integer(n_draws)
+  if (!is.finite(n_draws) || n_draws <= 0L) stop("`n_draws` must be a positive integer.")
+  if (!is.finite(rho_min) || !is.finite(rho_max) || rho_min <= 0 || rho_max >= 1 || rho_min >= rho_max) {
+    stop("`rho_min` and `rho_max` must satisfy 0 < rho_min < rho_max < 1.")
+  }
+  if (is.null(decay_tbl) || is.null(decay_tbl$summary)) {
+    stop("`decay_tbl` must be supplied and contain a `$summary` table with per-chromosome decay parameter `a`.")
   }
   
-  ld_w <- rbindlist(ld_w)
+  ids  <- read_gds_ids(gds)
+  chrs <- unique(ids$snp_chr)
   
+  ## Sample rho_w values once and reuse across chromosomes
+  rho_ws <- stats::runif(n_draws, rho_min, rho_max)
+  
+  out_by_chr <- vector("list", length(chrs))
+  names(out_by_chr) <- as.character(chrs)
+  
+  
+  for (ch in chrs) {
+    cat(ch, "..")
+    
+    chr_idx <- which(ids$snp_chr == ch)
+    snp_ids_chr <- ids$snp_id[chr_idx]
+    
+    ## Edge list for chromosome (unidirectional pairs)
+    ## Expected columns at least: SNP1, SNP2, r2, d
+    el <- get_el(gds, idx = chr_idx, slide_win_ld = slide_win_ld)
+    
+    ## Decay parameter for this chromosome
+    summ <- decay_tbl$summary[decay_tbl$summary$Chr == ch, ]
+    if (nrow(summ) != 1L) {
+      stop("decay_tbl$summary must contain exactly one row per chromosome (missing/duplicate for Chr = ", ch, ").")
+    }
+    a_chr <- summ$a
+    
+    out_by_chr[[as.character(ch)]] <- data.table::rbindlist(
+      lapply(seq_len(n_draws), function(draw_i) {
+        
+        rho_w <- rho_ws[draw_i]
+        d_th  <- as.integer(d_from_rho(a_chr, rho = rho_w))
+        
+        ## Filter edges to those within distance threshold
+        sub <- el[d < d_th, .(SNP1, SNP2, r2)]
+        
+        ## True per-SNP local LD:
+        ## treat each edge as contributing to BOTH endpoints
+        med_dt <- data.table::rbindlist(list(
+          sub[, .(SNP = SNP1, r2)],
+          sub[, .(SNP = SNP2, r2)]
+        ))[, .(median_r2 = stats::median(r2, na.rm = TRUE)), by = SNP]
+        
+        ## Ensure every SNP appears (even if it has no neighbors within d_th)
+        res <- data.table::data.table(SNP = snp_ids_chr)
+        res <- med_dt[res, on = "SNP"]  # left join, keeps SNP order
+        
+        data.table::data.table(
+          Chr   = ch,
+          draw  = draw_i,
+          rho_w = rho_w,
+          d_th  = d_th,
+          ld_w  = list(res)
+        )
+      }),
+      use.names = TRUE
+    )
+  }
+  
+  ld_w_draws <- data.table::rbindlist(out_by_chr, use.names = TRUE)
   
   t2 <- Sys.time()
-  print(difftime(t2,t1))
+  print(difftime(t2, t1))
   cat("\n\n")
   
-  return(ld_w)
+  ld_w_draws
 }
+

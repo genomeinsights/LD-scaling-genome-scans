@@ -62,3 +62,4 @@ get_C <- function(draws,markers){
   setnames(C_scores,colnames(C_scores),paste0("C_",unique(draws$method)))
   return(C_scores)
 }
+#C_scores[,plot(C_emx_F_prime)]

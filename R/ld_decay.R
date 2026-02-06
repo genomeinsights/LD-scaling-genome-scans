@@ -38,35 +38,22 @@
 
 # 
 ld_decay <- function(gds,
-                     geno = NULL, 
-                     map = NULL,
+                     idx,
+                     b,
                      q = 0.95,                               ## Quantile for LD-decay and background LD
                      n_sub = 5000,                           ## How many random SNP pairs to estimate background LD
                      slide_win_ld = 1000,                    ## Sliding window for LD-estimation 
                      window_size = 1e6,                      ## Window size to estimate LD-decay within chromosomes in bps
                      step_size = 5e5,                        ## Step size for window in bps
-                     n_cores_ld =  8                         ## Number of cores to estimate LD
+                     n_cores_ld =  8,                         ## Number of cores to estimate LD
+                     dist_unit = 5000
 ) {
   t1 <- Sys.time()
   ## generate gds file
   
-  if(is.null(gds)){
-    gds_path = tempfile(fileext = ".gds")
-    
-    cat("Generating GDS object\n")
-    gds <- create_gds_from_geno(geno, map,  gds_path)
-    
-    ## close at exit
-    on.exit({ snpgdsClose(gds); unlink(gds_path) }, add = TRUE) 
-  }
-  
-  ## background LD
-  ids <- read_gds_ids(gds)
-  
-  b <- get_bg_ld(gds, n_sub = n_sub, q = q)
   cat("q95 of between chromosome LD (background LD) is b=",sprintf("%.4f", b),"\n")
   ## LD-decay data in windows within chromosomes
-  decay_data <- ld_decay_by_chr_win(gds, q = q, b = b, slide_win_ld = slide_win_ld,window_size = window_size,step_size = step_size,n_cores_ld =  n_cores_ld)
+  decay_data <- ld_decay_by_chr_win(gds, idx, q = q, b = b, slide_win_ld = slide_win_ld,window_size = window_size,step_size = step_size,n_cores_ld =  n_cores_ld)
   
   decay_summary <- decay_data[,.(Chr_size=max(end),c=median(c,na.rm=TRUE),a=median(a,na.rm=TRUE),b=b),by=Chr]
   t2 <- Sys.time()
@@ -131,18 +118,18 @@ read_gds_ids <- function(gds) {
 #'
 #' @export
 
-ld_decay_by_chr_win <- function(gds, slide_win_ld = 10000, q = 0.95, dist_unit = 5000, window_size=1e7,
+ld_decay_by_chr_win <- function(gds, idx, slide_win_ld = 10000, q = 0.95, dist_unit = 5000, window_size=1e7,
                                 step_size =5e+05,b = 0.05, n_cores_ld = 1) {
   ids <- read_gds_ids(gds)
-  chrs <- unique(ids$snp_chr)
+  chrs <- unique(ids$snp_chr[idx])
   
   out <- list()
   #ch="Chr1"
   for(ch in chrs){
     cat(ch,"..")
-    idx <- which(ids$snp_chr == ch)
     
-    el <- get_el(gds,slide_win_ld = slide_win_ld,idx = idx,n_cores = n_cores_ld)
+    
+    el <- get_el(gds,slide_win_ld = slide_win_ld,idx = which(ids$snp_chr[idx] == ch),n_cores = n_cores_ld)
     
     # get windows for ld-decay analyses
     min_pos <- min(el$pos1, el$pos2)

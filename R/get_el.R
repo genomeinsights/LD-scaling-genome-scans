@@ -1,64 +1,66 @@
-
-#' Build an LD edge list for a subset of SNPs
+#' Build an LD edge list for a subset of SNPs (unidirectional)
 #'
 #' Computes pairwise LD (\eqn{r^2}) for a specified subset of SNPs in a GDS file
-#' and returns an edge list with genomic coordinates and distances.
+#' and returns an edge list with genomic coordinates and distances. Each SNP pair
+#' appears once (unidirectional), which is sufficient for undirected clustering.
 #'
 #' @param gds An open GDS object.
 #' @param idx Integer vector of SNP indices (1-based, referring to the GDS SNP index).
-#' @param slide_win_ld Integer. If positive, LD is estimated using a sliding window of
+#' @param slide_win_ld Integer. If > 0, LD is estimated using a sliding window of
 #'   this size; if \code{<= 0}, all pairwise LD values are computed.
-#' @param n_cores Integer, number of threads to use in LD computation.
+#' @param n_cores Integer. Number of threads to use in LD computation.
 #'
-#' @return A \code{data.table} with columns:
-#'   \itemize{
-#'     \item \code{Var1}, \code{Var2}: internal indices of SNP pairs.
-#'     \item \code{r2}: pairwise LD (\eqn{r^2}).
-#'     \item \code{Chr1}, \code{Chr2}: chromosomes of SNP1 and SNP2.
-#'     \item \code{pos1}, \code{pos2}: positions of SNP1 and SNP2.
-#'     \item \code{SNP1}, \code{SNP2}: SNP IDs.
-#'     \item \code{d}: physical distance between SNPs in base pairs.
-#'   }
-#'
-#' @examples
-#' \dontrun{
-#' idx <- 1:1000
-#' el  <- get_el(gds, idx, slide_win_ld = 1000)
-#' head(el)
-#' }
+#' @return A \code{data.table} with columns \code{Var1}, \code{Var2}, \code{r2},
+#'   \code{Chr1}, \code{Chr2}, \code{pos1}, \code{pos2}, \code{SNP1}, \code{SNP2}, \code{d}.
 #'
 #' @export
-
-get_el <- function(gds, idx, slide_win_ld=1000, n_cores=1){
+get_el <- function(gds, idx, slide_win_ld = 1000, n_cores = 1) {
+  
   ids <- read_gds_ids(gds)
-  if(slide_win_ld>0){
-    
-    ldmat <- snpgdsLDMat(gds, snp.id = ids$snp_id[idx], method = "r", slide = slide_win_ld,verbose=FALSE,num.thread = n_cores)
-    el <- as.data.table(reshape2::melt(ldmat$LD^2,value.name="r2"))
-    el[,Var1:=Var1+Var2]
-    el <- rbind(el,el[,.(Var1=Var2,Var2=Var1,r2)]) ## this is necessary when sliding window is used!!
-    el <- el[!is.nan(r2)]
-    el[,Chr1:=ids$snp_chr[idx][Var1]]
-    el[,Chr2:=ids$snp_chr[idx][Var2]]
-    el[,pos1:=ids$snp_pos[idx][Var1]]
-    el[,pos2:=ids$snp_pos[idx][Var2]]
-    el[,SNP1:=ids$snp_id[idx][Var1]]
-    el[,SNP2:=ids$snp_id[idx][Var2]]
-    el[,d:=abs(pos1-pos2)]
-    return(el)
-    
-  }else{
-    ldmat <- snpgdsLDMat(gds, snp.id = ids$snp_id[idx], method = "r", slide = -1,verbose=FALSE,num.thread = n_cores)
-    el <- as.data.table(reshape2::melt(ldmat$LD^2,value.name="r2"))
-    el <- el[!is.nan(r2)]
-    el[,Chr1:=ids$snp_chr[idx][Var1]]
-    el[,Chr2:=ids$snp_chr[idx][Var2]]
-    el[,pos1:=ids$snp_pos[idx][Var1]]
-    el[,pos2:=ids$snp_pos[idx][Var2]]
-    el[,SNP1:=ids$snp_id[idx][Var1]]
-    el[,SNP2:=ids$snp_id[idx][Var2]]
-    el[,d:=abs(pos1-pos2)]
-    
-    return(el)
+  
+  idx <- as.integer(idx)
+  if (anyNA(idx) || length(idx) == 0L) stop("`idx` must be a non-empty integer vector.")
+  if (min(idx) < 1L || max(idx) > length(ids$snp_id)) stop("`idx` is out of range for this GDS.")
+  
+  snp_ids <- ids$snp_id[idx]
+  slide <- if (slide_win_ld > 0) as.integer(slide_win_ld) else -1L
+  
+  ldmat <- SNPRelate::snpgdsLDMat(
+    gds,
+    snp.id = snp_ids,
+    method = "r",
+    slide = slide,
+    verbose = FALSE,
+    num.thread = as.integer(n_cores)
+  )
+  
+  el <- data.table::as.data.table(
+    reshape2::melt(ldmat$LD^2, value.name = "r2")
+  )
+  
+  ## Sliding-window LDMat uses a banded/offset representation: Var2 is an offset.
+  ## Convert to absolute indices within the SNP subset.
+  if (slide_win_ld > 0) {
+    el[, Var1 := Var1 + Var2]
   }
+  
+  ## Keep only one copy per pair (drop diagonal + duplicates)
+  ## Choose one triangle consistently; here: Var1 > Var2
+  el <- el[Var1 > Var2]
+  
+  ## Drop missing/non-finite r2
+  el <- el[is.finite(r2)]
+  
+  ## Attach metadata
+  el[, Chr1 := ids$snp_chr[idx][Var1]]
+  el[, Chr2 := ids$snp_chr[idx][Var2]]
+  el[, pos1 := ids$snp_pos[idx][Var1]]
+  el[, pos2 := ids$snp_pos[idx][Var2]]
+  el[, SNP1 := ids$snp_id[idx][Var1]]
+  el[, SNP2 := ids$snp_id[idx][Var2]]
+  
+  ## Physical distance
+  el[, d := abs(pos1 - pos2)]
+  
+  el
 }

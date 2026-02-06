@@ -54,7 +54,7 @@ from Zenondo (10.5281/zenodo.18466057).
 │   ├── R/                              
 │     ├── 3sp_sticklebacks.R/           # R-code to analyses three-spined sticklebacks
 │     ├── 9sp_sticklebacks.R/           # R-code to analyses nine-spined sticklebacks
-├── R/                                  # R-functions that are common for all analyses
+├── R/                                  # R-functions that are common for many analyses
 ├── figures/                            # Figures for manuscript
 │   └── R/                              # Scripts to reproduce manuscript figures
 └── data/                               # Dowload from Zenondo
