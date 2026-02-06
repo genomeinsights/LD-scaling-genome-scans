@@ -425,6 +425,7 @@ tmp <- do.call(rbind,strsplit(files,"/",fixed=TRUE))[,4]
 files_split <- split(files, gsub(".rds","",apply(do.call(rbind,strsplit(tmp,"_",fixed=TRUE))[,2:4],1,paste,collapse="_")))
 
 out_folder <- "./results_sim/"
+min_maf <- 0.1
 
 # These are the pre-drawn individuals used for all
 # Note that the parsed data contains data for 500 individuals, and these are a subsample of those
@@ -476,8 +477,8 @@ if(TRUE){
       maf_new <- colSums(GTs)/nrow(GTs)/2
       maf_new <- ifelse(maf_new<0.5,maf_new,1-maf_new)
       map[,maf:=maf_new]
-      GTs <- GTs[,maf_new>0.1]
-      map <- map[maf>0.1]
+      GTs <- GTs[,maf_new>min_maf]
+      map <- map[maf>min_maf]
       
       ## generate gds file
       gds_path = tempfile(fileext = ".gds")

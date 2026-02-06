@@ -1,14 +1,15 @@
-get_bg_ld <- function(gds, idx, n_sub = 5000, q = 0.95, seed = NULL) {
+get_bg_ld <- function(gds, idx=NULL, n_sub = 5000, q = 0.95, seed = NULL) {
   
   if (!is.null(seed)) set.seed(seed)
   
   ids <- read_gds_ids(gds)
+  if(is.null(idx)) idx <- seq_along(ids$snp_id)
   n_snps <- length(idx)
   
   if (n_snps < 2L) stop("Not enough SNPs to estimate background LD.")
   
   ## sample SNPs, but ensure multiple chromosomes
-  
+ 
   snp_pool <- unlist(lapply(split(seq_len(n_snps), ids$snp_chr[idx]), function(ix) {
     sample(ix, min(length(ix), ceiling(n_sub / length(unique(ids$snp_chr[idx])))))
   }))

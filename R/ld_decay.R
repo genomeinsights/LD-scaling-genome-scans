@@ -38,7 +38,7 @@
 
 # 
 ld_decay <- function(gds,
-                     idx,
+                     idx=NULL,
                      b,
                      q = 0.95,                               ## Quantile for LD-decay and background LD
                      n_sub = 5000,                           ## How many random SNP pairs to estimate background LD
@@ -52,7 +52,11 @@ ld_decay <- function(gds,
   ## generate gds file
   
   cat("q95 of between chromosome LD (background LD) is b=",sprintf("%.4f", b),"\n")
+  ids <- read_gds_ids(gds)
+  if(is.null(idx)) idx <- seq_along(ids$snp_id)
+  
   ## LD-decay data in windows within chromosomes
+  
   decay_data <- ld_decay_by_chr_win(gds, idx, q = q, b = b, slide_win_ld = slide_win_ld,window_size = window_size,step_size = step_size,n_cores_ld =  n_cores_ld)
   
   decay_summary <- decay_data[,.(Chr_size=max(end),c=median(c,na.rm=TRUE),a=median(a,na.rm=TRUE),b=b),by=Chr]

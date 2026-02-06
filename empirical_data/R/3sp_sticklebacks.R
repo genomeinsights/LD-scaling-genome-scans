@@ -35,10 +35,14 @@ if(length(list.files("./empirical_data/"))==0) message("Please download data for
 
 load("./empirical_data/3sp/3sp_data.RData") ## contains SNP_res_3sp, GTs_3sp and pheno_3sp
 
+##filter by maf
 
+GTs_3sp <- GTs_3sp[,map_3sp$maf>0.1]
+map_3sp <- map_3sp[maf>0.1]
 if(any(ls() %in% "gds_3sp")) snpgdsClose(gds_3sp); unlink(gds_3sp)
 
 gds_3sp <- create_gds_from_geno(geno = GTs_3sp, map=map_3sp,"gds_3sp.gds")
+
 
 # get id's for later use
 ids <- read_gds_ids(gds_3sp)
@@ -48,12 +52,17 @@ ids <- read_gds_ids(gds_3sp)
 if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
   #### ==== Estimate LD-decay for chromosomes ==== ####
   if(!file.exists("./empirical_data/3sp/LD_decay_3sp.rds")){
+    
+    b <- get_bg_ld(gds_3sp, n_sub = 5000, q = 0.95)
+    
     LD_decay_3sp <- ld_decay(gds=gds_3sp,
                              q = 0.95,
+                             b = b, 
                              n_sub = 5000,
                              slide_win_ld = 1000,
                              window_size = 1e6,
                              step_size = 5e5,
+                             dist_unit = 5000,
                              n_cores_ld =  8)
     
     LD_decay_3sp$summary[,plot(Chr_size,1/a)]
@@ -68,12 +77,13 @@ if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
   if(!file.exists("./empirical_data/3sp/pruning.rds")){
     
     
-    cls_075_3sp <- SLC(gds_3sp,decay_tbl = LD_decay_3sp,idx = NULL,slide_win_ld = 1000,q = 0.5)$CLS ## based on both ld and d thresholds, as for ORs, but singleton clusters are kept
-    length(cls_075_3sp)
-    length(unlist(cls_075_3sp))
-    pruned_SNPs <- sapply(cls_075_3sp,sample,1) ## from clusters, pick one randomly
+    cls_05_3sp <- SLC(gds_3sp,decay_tbl = LD_decay_3sp,idx = NULL,slide_win_ld = 1000,q = 0.5)$CLS 
     
-    saveRDS(list(cls=cls_075_3sp,pruned_SNPs=pruned_SNPs),"./empirical_data/3sp/pruning.rds")
+    length(cls_05_3sp)/length(unlist(cls_05_3sp)) ## data compression
+    
+    pruned_SNPs <- sapply(cls_05_3sp,sample,1) ## from clusters, pick one randomly
+    
+    saveRDS(list(cls=cls_05_3sp,pruned_SNPs=pruned_SNPs),"./empirical_data/3sp/pruning.rds")
     
   }else{
     pruned_SNPs <- readRDS("./empirical_data/3sp/pruning.rds")$pruned_SNPs
@@ -94,9 +104,10 @@ if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
     
     map_3sp[,emx_F:=emx$F] ## add to map
     emx_gif = map_3sp[,median(emx_F)/qf(0.5,1,115,lower.tail = FALSE)] ## inflation factor
-    map_3sp[,emx_F_GC:=emx_F/emx_gif]  ## genomic control
+    map_3sp[,emx_F_GC:=emx_F/1]  ## genomic control
     map_3sp[,emx_p_GC:=pf(emx_F_GC,1,115,lower.tail = FALSE)] ## p-value
     map_3sp[,emx_q:=p.adjust(emx_p_GC,"fdr")] ## fdr correction
+    
     saveRDS(emx,"./empirical_data/3sp/emx_3sp.rds")
   }else{
     map_3sp[,emx_F:=readRDS("./empirical_data/3sp/emx_3sp.rds")$F] ## add to map
@@ -105,7 +116,6 @@ if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
     map_3sp[,emx_p_GC:=pf(emx_F_GC,1,115,lower.tail = FALSE)] ## p-value
     map_3sp[,emx_q:=p.adjust(emx_p_GC,"fdr")] ## fdr correction
   }
-  #map_3sp[,plot(emx_F)]
   
   #### ==== Latent factor mixed model analyses (LFMM) ==== #### 
   #lfmm takes very long time
@@ -132,7 +142,7 @@ if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
   #### ==== Draw 100 rho_w values and get ld_w vector for each of them ==== ####
   
   if(!file.exists("./empirical_data/3sp/ld_w_draws_3sp_200.rds")){
-    ld_w_draws_3sp <- get_ld_w_draws(gds_3sp,decay_tbl = LD_decay_3sp,slide_win_ld = 1000,n_draws = 200,min = 0.75,max = 1,n_cores = 8)
+    ld_w_draws_3sp <- get_ld_w_draws(gds_3sp,decay_tbl = LD_decay_3sp,slide_win_ld = 1000,n_draws = 200,rho_min =  0.75,rho_max =  1)
     saveRDS(ld_w_draws_3sp,"./empirical_data/3sp/ld_w_draws_3sp_200.rds")
   }else{
     ld_w_draws_3sp <- readRDS("./empirical_data/3sp/ld_w_draws_3sp_200.rds")
