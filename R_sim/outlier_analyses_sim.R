@@ -432,7 +432,7 @@ min_maf <- 0.1
 keep_125 <-readRDS("./data/keep_inds_125.rds")
 cores <- 8 # cores to use
 
-# fil <- files_split[[1]]
+# fil <- files_split[[5]]
 if(TRUE){
   message("\n\n#### ==== Starting outlier analyses ==== ####\n\n")
   
@@ -647,11 +647,10 @@ if(TRUE){
                                          lmin_lim = list(min=1, max=10),
                                          n_cores = 8)
       
+      ORs_for_Cscore[,method:=gsub("q","F",method)]
       ## get C-score and collect data
       map <- cbind(map, get_C(draws = ORs_for_Cscore,markers = map$marker))
-      #get_C(draws = ORs_for_Cscore,markers = map$marker)[,plot(C_emx_F_prime)]
-      #map[,cor(max_LD_with_QTN,C_joint)^2]
-      #map[,range(C_joint)]
+      
       
       ## save data
       out <- list(SNP_res=map,GTs=GTs,ORs_for_Cscore=ORs_for_Cscore,decay_tbl=decay_tbl_final,cor_ldw_rhow=cor_ldw_rhow)
@@ -674,7 +673,7 @@ cat("\n\n#### ==== Done with outlier analyses ==== ####\n\n")
 
 message("\n\n#### ==== Getting true anf false positive ORs ==== ####\n\n")
 
-out_folder <- "./results_sim_new/"
+out_folder <- "./results_sim/"
 
 res_files <- list.files(out_folder,full.names = TRUE)
 done <- res_files[grepl("_PR.rds",res_files)]
@@ -768,7 +767,7 @@ if(TRUE){
 message("\n\n#### ==== Attaining AUC data ==== ####\n\n")
 
 
-res_files <- list.files( "./results_sim_new/",full.names = TRUE)
+res_files <- list.files( "./results_sim/",full.names = TRUE)
 PR_files <- res_files[grepl("_PR.rds",res_files)]
 
 #PR_file <- PR_files[1]

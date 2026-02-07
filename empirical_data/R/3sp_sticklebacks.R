@@ -16,14 +16,14 @@ invisible(lapply(c("./R/emmax.R",
                    "./R/coef_ld_dec.R",
                    "./R/emmax.R",
                    "./R/get_bg_ld.R",
+                   "./R/find_ORs.R",
                    "./R/get_C.R",
                    "./R/get_el.R",
                    "./R/get_ld_w_draws.R",
                    "./R/ld_decay.R",
                    "./R/ORs_from_draws.R",
-                   "./R/plot_manhattan.R",
+                   "./R/prep_manhattan.R",
                    "./R/SLC.R",
-                   "./R/find_ORs.R",
                    "./R/d_from_rho.R"),source))
 
 ###################################################
@@ -36,10 +36,10 @@ if(length(list.files("./empirical_data/"))==0) message("Please download data for
 load("./empirical_data/3sp/3sp_data.RData") ## contains SNP_res_3sp, GTs_3sp and pheno_3sp
 
 ##filter by maf
-
+keep <- map_3sp$maf>0.1
 GTs_3sp <- GTs_3sp[,map_3sp$maf>0.1]
 map_3sp <- map_3sp[maf>0.1]
-if(any(ls() %in% "gds_3sp")) snpgdsClose(gds_3sp); unlink(gds_3sp)
+#if(any(ls() %in% "gds_3sp")) snpgdsClose(gds_3sp); unlink(gds_3sp)
 
 gds_3sp <- create_gds_from_geno(geno = GTs_3sp, map=map_3sp,"gds_3sp.gds")
 
@@ -133,7 +133,7 @@ if(!file.exists("./empirical_data/3sp/SNP_res_3sp.rds")){
     saveRDS(pv$f,"./empirical_data/3sp/lfmm_F.rds") # only F-value is needed
     
   }else{
-    map_3sp[,lfmm_F:=readRDS("./empirical_data/3sp/lfmm_F.rds")]
+    map_3sp[,lfmm_F:=readRDS("./empirical_data/3sp/lfmm_F.rds")[keep]]
     map_3sp[,lfmm_P:=pf(lfmm_F,1,115,lower.tail = FALSE)]
     map_3sp[,lfmm_q:=p.adjust(lfmm_P,"fdr")]
   }
@@ -203,38 +203,30 @@ ORs <- find_ORs(gds_3sp,LD_decay_3sp,outliers = SNP_res_3sp[C_joint>tau_C,marker
 SNP_res_3sp[,OR:=ORs$OR[match(marker, ORs$marker)]]
 SNP_res_3sp[,n_loci:=ORs$n_loci[match(marker, ORs$marker)]]
 
-## create data necessary for manhattan plots
-plot_data_manh <- plot_manhattan(
-  SNP_res_3sp[, .(
-    bp = Pos,
-    Chr,
-    marker,
-    C_joint,
-    OR = as.character(OR),     # <- Joint_C ORs
-    LFMM_log = -log10(lfmm_q),
-    lfmm_q
-  )],
-  chr_cols = c("white", "grey80"),
-  spacer = 0
-)
+
+plot_data_manh <- prep_manhattan(SNP_res_3sp[,.(bp=Pos,Chr,marker,C_joint, OR = as.character(OR),     # <- Joint_C ORs
+                                                LFMM_log = -log10(lfmm_q),
+                                                lfmm_q)],chr_cols = c("white","grey80"),spacer =0)
+
+
 
 ## manhattan plot for lfmm
-p1 <- ggplot(plot_data_manh$don, aes(BPcum, LFMM_log, col = OR)) +
+p1 <- ggplot(plot_data_manh$data, aes(BPcum, LFMM_log, col = OR)) +
   geom_rect(
-    data = plot_data_manh$rect_data,
+    data = plot_data_manh$rect,
     aes(xmin = x1, xmax = x2, ymin = y1, ymax = Inf),
-    fill = plot_data_manh$rect_data$col,
+    fill = plot_data_manh$rect$col,
     alpha = 0.5,
     linewidth = 0.25,
     inherit.aes = FALSE
   ) +
   geom_point(size = 1) +
-  geom_point(data = plot_data_manh$don[!is.na(OR)],size = 1) +
+  geom_point(data = plot_data_manh$data[!is.na(OR)],size = 1) +
   geom_hline(yintercept = -log10(0.05), linetype = 2, linewidth = 0.5) +
   scale_color_manual(values = rep(col_vector, 4), guide = "none") +
   scale_x_continuous(
-    label = plot_data_manh$axisdf$Chr,
-    breaks = plot_data_manh$axisdf$center
+    label = plot_data_manh$axis$Chr,
+    breaks = plot_data_manh$axis$center
   ) +
   theme_bw() +
   theme(
@@ -246,22 +238,22 @@ p1 <- ggplot(plot_data_manh$don, aes(BPcum, LFMM_log, col = OR)) +
   ylab(expression(-log[10](q)))
 
 ## manhattan plot for Joint-C
-p2 <- ggplot(plot_data_manh$don, aes(BPcum, C_joint, col = OR)) +
+p2 <- ggplot(plot_data_manh$data, aes(BPcum, C_joint, col = OR)) +
   geom_rect(
-    data = plot_data_manh$rect_data,
+    data = plot_data_manh$rect,
     aes(xmin = x1, xmax = x2, ymin = y1, ymax = Inf),
-    fill = plot_data_manh$rect_data$col,
+    fill = plot_data_manh$rect$col,
     alpha = 0.5,
     linewidth = 0.25,
     inherit.aes = FALSE
   ) +
   geom_point(size = 1) +
-  geom_point(data = plot_data_manh$don[!is.na(OR)],size = 1) +
+  geom_point(data = plot_data_manh$data[!is.na(OR)],size = 1) +
   geom_hline(yintercept = tau_C, linetype = 2, linewidth = 0.5) +
   scale_color_manual(values = rep(col_vector, 4), guide = "none") +
   scale_x_continuous(
-    label = plot_data_manh$axisdf$Chr,
-    breaks = plot_data_manh$axisdf$center
+    label = plot_data_manh$axis$Chr,
+    breaks = plot_data_manh$axis$center
   ) +
   theme_bw() +
   theme(
@@ -279,3 +271,19 @@ p_3sp <- grid.arrange(p1+ggtitle(expression("e) Three-spined sticklebacks | LFMM
                       p2+ggtitle(expression("f) Three-spined sticklebacks | Joint" ))
                       ,ncol=1)
 saveRDS(p_3sp,"./figures/p_3sp.rds")
+
+nrow(SNP_res_3sp) # markers with MAF>0.1
+SNP_res_3sp[!is.na(OR),length(unique(OR))] # number of ORs
+SNP_res_3sp[!is.na(OR),length(unique(OR)),by=Chr] # number of ORs by Chr
+
+all_chr <- SNP_res_3sp[, .(Chr = unique(Chr))]
+
+# count ORs per chromosome
+cnt <- SNP_res_3sp[!is.na(OR),
+                   .(n_OR = uniqueN(OR)),
+                   by = Chr]
+
+# merge and fill zeros
+res <- merge(all_chr, cnt, by = "Chr", all.x = TRUE)
+res[is.na(n_OR), n_OR := 0]
+res[,mean(n_OR)]

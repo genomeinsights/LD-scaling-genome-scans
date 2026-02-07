@@ -1,3 +1,4 @@
+## finds ORs in a data st
 find_ORs <- function(gds, decay_tbl,el=NULL,outliers,rho_ld=0.999,rho_d=0.999){
   
   ids <- read_gds_ids(gds)
@@ -18,8 +19,7 @@ find_ORs <- function(gds, decay_tbl,el=NULL,outliers,rho_ld=0.999,rho_d=0.999){
       
       el[[ch]] <- get_el(gds = gds,
                          idx =  which(ids$snp_id %in% outl_ch),
-                         slide_win_ld = -1,
-                         n_cores = n_cores)
+                         slide_win_ld = -1)
     }
     
     el <- rbindlist(el)

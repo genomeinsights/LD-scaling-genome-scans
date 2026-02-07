@@ -17,11 +17,12 @@ invisible(lapply(c("./R/emmax.R",
                    "./R/emmax.R",
                    "./R/get_bg_ld.R",
                    "./R/get_C.R",
+                   "./R/find_ORs.R",
                    "./R/get_el.R",
                    "./R/get_ld_w_draws.R",
                    "./R/ld_decay.R",
                    "./R/ORs_from_draws.R",
-                   "./R/plot_manhattan.R",
+                   "./R/prep_manhattan.R",
                    "./R/SLC.R",
                    "./R/d_from_rho.R"),source))
 
@@ -30,12 +31,20 @@ invisible(lapply(c("./R/emmax.R",
 ###################################################
 #### ==== prepare data and do initial EMMAX and LFMM analyses ==== ####
 
-if(!file.exists("./empirical_data")) message("Please download data form Zenond")
+if(!file.exists("./empirical_data")) message("Please download data form Zenondo")
 
 data_9sp <-readRDS("./empirical_data/9sp/9sp_data.rds") ## contains SNP_res_9sp, GTs_9sp and pheno_9sp
 GTs_9sp <- data_9sp$GT
 map_9sp <- data_9sp$map
-
+pheno_9sp <- data_9sp$pheno
+eco_9sp <- data_9sp$ecotype_bin
+##filter by maf
+keep <- map_9sp$maf>0.1
+GTs_9sp <- GTs_9sp[,map_9sp$maf>0.1]
+map_9sp <- map_9sp[maf>0.1]
+rm(data_9sp)
+gc()
+if(any(ls() %in% "gds_9sp")) snpgdsClose(gds_9sp); unlink(gds_9sp)
 gds_9sp <- create_gds_from_geno(geno = GTs_9sp, map=map_9sp,"gds_9sp.gds")
 
 # get id's for later use
@@ -48,12 +57,16 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
   
   #### ==== Estimate LD-decay for chromosomes ==== ####
   if(!file.exists("./empirical_data/9sp/LD_decay_9sp.rds")){
+    b <- get_bg_ld(gds_9sp, n_sub = 5000, q = 0.95)
+    
     LD_decay_9sp <- ld_decay(gds=gds_9sp,
                              q = 0.95,
+                             b = b, 
                              n_sub = 5000,
                              slide_win_ld = 1000,
                              window_size = 1e6,
                              step_size = 5e5,
+                             dist_unit = 5000,
                              n_cores_ld =  8)
     
     LD_decay_9sp$summary[,plot(Chr_size,1/a)]
@@ -69,10 +82,10 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
   if(!file.exists("./empirical_data/9sp/pruning.rds")){
     
     
-    cls_075_9sp <- SLC(gds_9sp,decay_tbl = LD_decay_9sp,idx = NULL,slide_win_ld = 1000,q = 0.5)$CLS ## based on both ld and d thresholds, as for ORs, but singleton clusters are kept
-    pruned_SNPs <- sapply(cls_075_9sp,sample,1) ## from clusters, pick one randomly
+    cls_05_9sp <- SLC(gds_9sp,decay_tbl = LD_decay_9sp,idx = NULL,slide_win_ld = 1000,q = 0.5)$CLS ## based on both ld and d thresholds, as for ORs, but singleton clusters are kept
+    pruned_SNPs <- sapply(cls_05_9sp,sample,1) ## from clusters, pick one randomly
     
-    saveRDS(list(cls=cls_075_9sp,pruned_SNPs=pruned_SNPs),"./empirical_data/9sp/pruning.rds")
+    saveRDS(list(cls=cls_05_9sp,pruned_SNPs=pruned_SNPs),"./empirical_data/9sp/pruning.rds")
     
   }else{
     pruned_SNPs <- readRDS("./empirical_data/9sp/pruning.rds")$pruned_SNPs
@@ -90,7 +103,7 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
     
     
     ## EMMAX does not expect a file in 012 format so the maximum likelihood genotypes can be used (without rounding)
-    emx <- emmax(eco_bin,GTs_9sp,K = GRM,Covar =data_9sp$pheno$lineage) ## function lives in ./R/emmax.R
+    emx <- emmax(eco_9sp,GTs_9sp,K = GRM,Covar =pheno_9sp$lineage) ## function lives in ./R/emmax.R
     
     map_9sp[,emx_F:=emx$F] ## add to map
     emx_gif = map_9sp[,median(emx_F)/qf(0.5,1,nrow(GTs_9sp),lower.tail = FALSE)] ## inflation factor
@@ -125,7 +138,7 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
     saveRDS(pv$f,"./empirical_data/9sp/lfmm_F.rds") # only F-value is needed
     q("no")
   }else{
-    map_9sp[,lfmm_F:=readRDS("./empirical_data/9sp/lfmm_F.rds")]
+    map_9sp[,lfmm_F:=readRDS("./empirical_data/9sp/lfmm_F.rds")[keep]]
     lfmm_gif = map_9sp[,median(lfmm_F)/qf(0.5,1,nrow(GTs_9sp),lower.tail = FALSE)] ## inflation factor
     map_9sp[,lfmm_F_GC:=lfmm_F/lfmm_gif]  ## genomic control
     map_9sp[,lfmm_P:=pf(lfmm_F_GC,1,nrow(GTs_9sp),lower.tail = FALSE)]
@@ -135,7 +148,7 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
   #### ==== Draw 100 rho_w values and get ld_w vector for each of them ==== ####
   
   if(!file.exists("./empirical_data/9sp/ld_w_draws_9sp_200.rds")){
-    ld_w_draws_9sp <- get_ld_w_draws(gds_9sp,decay_tbl = LD_decay_9sp,slide_win_ld = 1000,n_draws = 200,min = 0.75,max = 1,n_cores = 8)
+    ld_w_draws_9sp <- get_ld_w_draws(gds_9sp,decay_tbl = LD_decay_9sp,slide_win_ld = 1000,n_draws = 200,rho_min = 0.75,rho_max = 1,n_cores = 8)
     saveRDS(ld_w_draws_9sp,"./empirical_data/9sp/ld_w_draws_9sp_200.rds")
     cat("Done")
     
@@ -152,7 +165,7 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
       q <- p.adjust(p,"fdr")
     })
     
-    ld_w_draws_9sp <- readRDS("./empirical_data/9sp/ld_w_draws_9sp_200.rds")
+    #ld_w_draws_9sp <- readRDS("./empirical_data/9sp/ld_w_draws_9sp_200.rds")
     OR_draws_9sp <- cbind(sub=i,get_ORs_for_draw(gds=gds_9sp,
                                                  F_vals = F_vals,
                                                  q_orgs = q_orgs,
@@ -169,7 +182,7 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
     
     
     
-    saveRDS(OR_draws_9sp,"./empirical_data/9sp/OR_draws_9sp_lmin1_45_2.rds")
+    saveRDS(OR_draws_9sp,"./empirical_data/9sp/OR_draws_9sp_lmin1_45.rds")
     rm(ld_w_draws_9sp)
     gc()
   }
@@ -185,7 +198,19 @@ if(!file.exists("./empirical_data/9sp/SNP_res_9sp.rds")){
 OR_draws_9sp <- readRDS("./empirical_data/9sp/OR_draws_9sp_lmin1_45.rds")
 SNP_res_9sp <- readRDS("./empirical_data/9sp/SNP_res_9sp.rds")
 SNP_res_9sp <- cbind(SNP_res_9sp,get_C(OR_draws_9sp,markers=SNP_res_9sp$marker))
+rm(OR_draws_9sp)
+gc()
 LD_decay_9sp <- readRDS("./empirical_data/9sp/LD_decay_9sp.rds")
+
+data_9sp <-readRDS("./empirical_data/9sp/9sp_data.rds") ## contains SNP_res_9sp, GTs_9sp and pheno_9sp
+GTs_9sp <- data_9sp$GT
+map_9sp <- data_9sp$map
+keep <- map_9sp$maf>0.1
+GTs_9sp <- GTs_9sp[,map_9sp$maf>0.1]
+map_9sp <- map_9sp[maf>0.1]
+rm(data_9sp)
+gc()
+gds_9sp <- create_gds_from_geno(geno = GTs_9sp, map=map_9sp,"gds_9sp.gds")
 
 ## specify tau_C
 tau_C <- 0.2
@@ -197,38 +222,29 @@ ORs <- find_ORs(gds_9sp,LD_decay_9sp,outliers = SNP_res_9sp[C_joint>tau_C,marker
 SNP_res_9sp[,OR:=ORs$OR[match(marker, ORs$marker)]]
 SNP_res_9sp[,n_loci:=ORs$n_loci[match(marker, ORs$marker)]]
 
-## create data necessary for manhattan plots
-plot_data_manh <- plot_manhattan(
-  SNP_res_9sp[, .(
-    bp = Pos,
-    Chr,
-    marker,
-    C_joint,
-    OR = as.character(OR),     # <- Joint_C ORs
-    LFMM_log = -log10(lfmm_q),
-    lfmm_q
-  )],
-  chr_cols = c("white", "grey80"),
-  spacer = 0
-)
+plot_data_manh <- prep_manhattan(SNP_res_9sp[,.(bp=Pos,Chr,marker,C_joint, OR = as.character(OR),     # <- Joint_C ORs
+                                                LFMM_log = -log10(lfmm_q),
+                                                lfmm_q)],chr_cols = c("white","grey80"),spacer =0)
+
+
 
 ## manhattan plot for lfmm
-p1 <- ggplot(plot_data_manh$don, aes(BPcum, LFMM_log, col = OR)) +
+p1 <- ggplot(plot_data_manh$data, aes(BPcum, LFMM_log, col = OR)) +
   geom_rect(
-    data = plot_data_manh$rect_data,
+    data = plot_data_manh$rect,
     aes(xmin = x1, xmax = x2, ymin = y1, ymax = Inf),
-    fill = plot_data_manh$rect_data$col,
+    fill = plot_data_manh$rect$col,
     alpha = 0.5,
     linewidth = 0.25,
     inherit.aes = FALSE
   ) +
   geom_point(size = 1) +
-  geom_point(data = plot_data_manh$don[!is.na(OR)],size = 1) +
+  geom_point(data = plot_data_manh$data[!is.na(OR)],size = 1) +
   geom_hline(yintercept = -log10(0.05), linetype = 2, linewidth = 0.5) +
   scale_color_manual(values = rep(col_vector, 4), guide = "none") +
   scale_x_continuous(
-    label = plot_data_manh$axisdf$Chr,
-    breaks = plot_data_manh$axisdf$center
+    label = plot_data_manh$axis$Chr,
+    breaks = plot_data_manh$axis$center
   ) +
   theme_bw() +
   theme(
@@ -240,22 +256,22 @@ p1 <- ggplot(plot_data_manh$don, aes(BPcum, LFMM_log, col = OR)) +
   ylab(expression(-log[10](q)))
 
 ## manhattan plot for Joint-C
-p2 <- ggplot(plot_data_manh$don, aes(BPcum, C_joint, col = OR)) +
+p2 <- ggplot(plot_data_manh$data, aes(BPcum, C_joint, col = OR)) +
   geom_rect(
-    data = plot_data_manh$rect_data,
+    data = plot_data_manh$rect,
     aes(xmin = x1, xmax = x2, ymin = y1, ymax = Inf),
-    fill = plot_data_manh$rect_data$col,
+    fill = plot_data_manh$rect$col,
     alpha = 0.5,
     linewidth = 0.25,
     inherit.aes = FALSE
   ) +
   geom_point(size = 1) +
-  geom_point(data = plot_data_manh$don[!is.na(OR)],size = 1) +
+  geom_point(data = plot_data_manh$data[!is.na(OR)],size = 1) +
   geom_hline(yintercept = tau_C, linetype = 2, linewidth = 0.5) +
   scale_color_manual(values = rep(col_vector, 4), guide = "none") +
   scale_x_continuous(
-    label = plot_data_manh$axisdf$Chr,
-    breaks = plot_data_manh$axisdf$center
+    label = plot_data_manh$axis$Chr,
+    breaks = plot_data_manh$axis$center
   ) +
   theme_bw() +
   theme(
@@ -267,10 +283,34 @@ p2 <- ggplot(plot_data_manh$don, aes(BPcum, C_joint, col = OR)) +
   ylab(expression(Joint[C]))
 
 
-
-
 p_9sp <- grid.arrange(p1+ggtitle(expression("g) Nine-spined sticklebacks | LFMM" )),
                       p2+ggtitle(expression("h) Nine-spined sticklebacks | Joint" ))
                       ,ncol=1)
 
 saveRDS(p_9sp,"./figures/p_9sp.rds")
+
+## stats 
+nrow(SNP_res_9sp)
+SNP_res_9sp[!is.na(OR),length(unique(OR))]
+SNP_res_9sp[!is.na(OR),length(unique(OR)),by=Chr]
+
+all_chr <- SNP_res_9sp[, .(Chr = unique(Chr))]
+
+# count ORs per chromosome
+cnt <- SNP_res_9sp[!is.na(OR),
+                   .(n_OR = uniqueN(OR)),
+                   by = Chr]
+
+# merge and fill zeros
+res <- merge(all_chr, cnt, by = "Chr", all.x = TRUE)
+res[is.na(n_OR), n_OR := 0]
+res[,mean(n_OR)]
+res[,table(n_OR==0)]
+res[,table(n_OR>1)]
+
+33/17
+
+26/2.9
+
+17/9
+33/26

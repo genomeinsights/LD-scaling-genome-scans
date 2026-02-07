@@ -1,3 +1,12 @@
+col_vector <- c("#B2DF8A", "#FFD92F", "firebrick", "#33A02C", "#7FC97F", "#CAB2D6", 
+  "#FB8072", "grey30", "#E6AB02", "#FDC086", "steelblue", "#1F78B4", 
+  "#FB9A99", "#1B9E77", "#BC80BD", "#E31A1C", "#7570B3", "#A6761D", 
+  "#A6CEE3", "salmon", "#FFFF33", "forestgreen", "#FDCDAC", "#BF5B17", 
+  "#A6761D", "#FBB4AE", "#4DAF4A", "#B3E2CD", "#FDDAEC", "#BEBADA", 
+  "#FFF2AE", "#1F78B4", "#66C2A5", "#F0027F", "#E6AB02", "#E78AC3", 
+  "#FF7F00", "#8DA0CB", "#6A3D9A", "#B15928", "#E41A1C")
+
+
 prep_manhattan <- function(data_manh,
                            spacer = 5e6,
                            chr_cols = c("bisque", "white")) {
