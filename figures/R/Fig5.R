@@ -6,7 +6,7 @@ library(stats)
 library(ggplot2)
 
 
-if(!file.exists("./results_sim_new/")) message("Please downlad files form Zenondo")
+if(!file.exists("./results_sim/")) message("Please downlad files form Zenondo")
 
 invisible(lapply(c("./R/get_ld_w_draws.R",         ## Generates w for ld_w for drawn w-values
                    "./R/prep_manhattan.R"),         ## Function for manhattan plots
@@ -19,6 +19,7 @@ res_file <- "./results_sim/c1_V0.5_rep4.rds"
 
 ## extract data
 data <- readRDS(res_file)
+#saveRDS(data,"sim_example.rds")
 PR_data <- readRDS(gsub(".rds","_PR.rds",res_file))
 
 ## genotype data set used to set up gds object below
