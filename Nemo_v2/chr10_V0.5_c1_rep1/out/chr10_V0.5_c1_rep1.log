@@ -1,0 +1,62 @@
+# Nemo    v2.4.0a "quanti multi"  [11 Apr 2024]
+#
+# simulation started on 07-04-2026 11:20:57
+
+
+filename chr10_V0.5_c1_rep1
+generations 11000
+replicates 1
+root_dir ./chr10_V0.5_c1_rep1/out
+run_mode overwrite
+
+patch_capacity 5
+patch_number 2304
+
+ntrl_all 2
+ntrl_genetic_map &./chr10_V0.5_c1_rep1/map_ntrl.txt
+ntrl_genetic_map_resolution 2640000
+ntrl_init_model 0
+ntrl_loci 199800
+ntrl_mutation_model 1
+ntrl_mutation_rate 5e-7
+ntrl_output_dir ntrl
+ntrl_output_logtime {{11000}}
+ntrl_save_genotype TAB
+
+quanti_allele_model diallelic
+quanti_allele_value &./chr10_V0.5_c1_rep1/allelic_values.txt
+quanti_dir quanti
+quanti_genetic_map &./chr10_V0.5_c1_rep1/map_QTN.txt
+quanti_genetic_map_resolution 2640000
+quanti_init_model 2
+quanti_loci 200
+quanti_logtime {{11000}}
+quanti_mutation_rate 1e-7
+quanti_output genotype
+quanti_pleiotropy n
+quanti_traits 1
+
+store 5
+store_dir binary
+store_generation 11000
+
+save_stats 3
+stat demography adlt.fstat adlt.quanti adlt.quanti.patch adlt.fitness.patch fitness 
+stat_log_time 100
+stat_output_compact 1
+
+files_sample_size 1
+save_files 4
+
+aging 2
+
+breed_disperse_matrix &./chr10_V0.5_c1_rep1/disp_mat.txt
+breed_selection_disperse 1
+mating_system 1
+selection_local_optima (@g0 {{1}}, @g10000 &./chr10_V0.5_c1_rep1/env.txt)
+selection_model gaussian
+selection_trait quant
+selection_trait_dimension 1
+selection_variance 0.5
+
+#random_seed 3551100111
